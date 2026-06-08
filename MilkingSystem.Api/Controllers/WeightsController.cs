@@ -15,14 +15,9 @@ namespace MilkingSystem.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public class WeightsController : ControllerBase
+public class WeightsController(DataService dataService) : ControllerBase
 {
-    private readonly DataService _dataService;
-
-    public WeightsController(DataService dataService)
-    {
-        _dataService = dataService;
-    }
+    private readonly DataService _dataService = dataService;
 
     [HttpGet("animal/{animalId}")]
     public IActionResult GetForAnimal(int animalId)
@@ -34,8 +29,10 @@ public class WeightsController : ControllerBase
     public IActionResult GetLastForAnimal(int animalId)
     {
         var lastMeasurement = _dataService.GetLastWeightForAnimal(animalId);
-        if (lastMeasurement == null)
+        if (lastMeasurement is null)
+        {
             return NotFound();
+        }
         return Ok(lastMeasurement);
     }
 

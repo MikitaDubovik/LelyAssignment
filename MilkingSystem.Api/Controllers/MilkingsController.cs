@@ -1,11 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
+using MilkingSystem.Core.Notifications;
 using MilkingSystem.Core.Services;
 
 namespace MilkingSystem.Api.Controllers;
 
 /// <summary>
 /// Controller for milking events.
-/// 
+///
 /// TODO: Candidates should implement POST endpoint for recording new milking events.
 /// 
 /// Background:
@@ -22,14 +23,10 @@ namespace MilkingSystem.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public class MilkingsController : ControllerBase
+public class MilkingsController(DataService dataService, IRobotNotifier notifier) : ControllerBase
 {
-    private readonly DataService _dataService;
-
-    public MilkingsController(DataService dataService)
-    {
-        _dataService = dataService;
-    }
+    private readonly DataService _dataService = dataService;
+    private readonly IRobotNotifier _notifier = notifier;
 
     [HttpGet("animal/{animalId}")]
     public IActionResult GetForAnimal(int animalId)
@@ -41,8 +38,10 @@ public class MilkingsController : ControllerBase
     public IActionResult GetLastForAnimal(int animalId)
     {
         var lastEvent = _dataService.GetLastMilkingForAnimal(animalId);
-        if (lastEvent == null)
+        if (lastEvent is null)
+        {
             return NotFound();
+        }
         return Ok(lastEvent);
     }
 
@@ -52,19 +51,68 @@ public class MilkingsController : ControllerBase
         return Ok(_dataService.GetRecentMilkingEvents(hours));
     }
 
-    // TODO: Candidate should implement this endpoint
-    // [HttpPost]
-    // public IActionResult RecordMilking([FromBody] RecordMilkingRequest request)
-    // {
-    //     // Implementation needed:
-    //     // 1. Validate the request
-    //     // 2. Check if animal exists
-    //     // 3. Check if robot exists and is active
-    //     // 4. Check if animal was recently milked (within 6 hours) - use IRobotNotifier.WasRecentlyMilked
-    //     // 5. Save the milking event
-    //     // 6. Notify other robots using IRobotNotifier.NotifyMilkingCompleted
-    //     // 7. Handle concurrency (what if two robots try to milk same animal at same time?)
-    // }
+    [HttpPost]
+    public async Task<IActionResult> RecordMilking([FromBody] RecordMilkingRequest request)
+    {
+        if (request.MilkYieldLiters <= 0)
+        {
+            return BadRequest(new { error = "MilkYieldLiters must be greater than zero" });
+        }
+
+        var animal = _dataService.GetAnimalById(request.AnimalId);
+        if (animal is null)
+        {
+            return NotFound(new { error = "Animal not found" });
+        }
+
+        var robot = _dataService.GetRobotById(request.RobotId);
+        if (robot is null)
+        {
+            return NotFound(new { error = "Robot not found" });
+        }
+        if (!robot.IsActive)
+        {
+            return UnprocessableEntity(new { error = "Robot is not active" });
+        }
+
+        var timestamp = request.Timestamp?.ToUniversalTime() ?? DateTime.UtcNow;
+
+        // Per-animal lock: different animals can be processed in parallel;
+        // the same animal is serialised so the check-then-save is atomic.
+        var animalLock = _dataService.GetAnimalMilkingLock(request.AnimalId);
+        await animalLock.WaitAsync();
+        try
+        {
+            if (_notifier.WasRecentlyMilked(request.AnimalId))
+            {
+                var lastMilking = _dataService.GetLastMilkingForAnimal(request.AnimalId);
+                return Conflict(new
+                {
+                    error = "Animal was milked too recently",
+                    lastMilkedAt = lastMilking?.Timestamp,
+                    nextAllowedAt = lastMilking?.Timestamp.AddHours(6)
+                });
+            }
+
+            var id = _dataService.SaveMilkingEvent(
+                request.AnimalId, request.RobotId, timestamp,
+                request.MilkYieldLiters, request.Duration);
+
+            _notifier.NotifyMilkingCompleted(new MilkingNotification
+            {
+                AnimalId = request.AnimalId,
+                RobotId = request.RobotId,
+                Timestamp = timestamp,
+                AnimalIdentificationNumber = animal.IdentificationNumber
+            });
+
+            return Ok(new { id });
+        }
+        finally
+        {
+            animalLock.Release();
+        }
+    }
 }
 
 /// <summary>
@@ -76,22 +124,22 @@ public class RecordMilkingRequest
     /// The ID of the animal being milked.
     /// </summary>
     public int AnimalId { get; set; }
-    
+
     /// <summary>
     /// The ID of the robot performing the milking.
     /// </summary>
     public int RobotId { get; set; }
-    
+
     /// <summary>
     /// The amount of milk collected in liters.
     /// </summary>
     public decimal MilkYieldLiters { get; set; }
-    
+
     /// <summary>
     /// The duration of the milking in seconds (optional).
     /// </summary>
     public int? Duration { get; set; }
-    
+
     /// <summary>
     /// The timestamp of the milking event. If not provided, current UTC time will be used.
     /// </summary>

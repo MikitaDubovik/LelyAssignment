@@ -1,3 +1,6 @@
+using System.Collections.Concurrent;
+using MilkingSystem.Core.Services;
+
 namespace MilkingSystem.Core.Notifications;
 
 /// <summary>
@@ -11,27 +14,91 @@ namespace MilkingSystem.Core.Notifications;
 /// </summary>
 public class InMemoryRobotNotifier : IRobotNotifier
 {
-    // TODO: Add necessary fields for tracking subscriptions and recent milkings
+    // AnimalId → timestamp of last completed milking
+    private readonly ConcurrentDictionary<int, DateTime> _recentMilkings = new();
 
-    public void NotifyMilkingCompleted(MilkingNotification notification)
+    private readonly List<Action<MilkingNotification>> _subscribers = [];
+    private readonly Lock _subscriberLock = new();
+
+    public InMemoryRobotNotifier(DataService dataService)
     {
-        // TODO: Implement broadcasting to all subscribers
-        // Consider: What happens if a subscriber throws an exception?
-        // Consider: Should this be synchronous or asynchronous?
-        throw new NotImplementedException("Candidate should implement this method");
+        //This is discussable. I know that it's not the common approach everywhere
+        //Some projects like to have a backend that can work without a DB connection at all
+        //But in this test scenario, if we can make a GET to grab necessary data then I would prefer the app to fail on Startup
+        HydrateFromDatabase(dataService);
+    }
+
+    // On startup, populate in-memory state from the DB so WasRecentlyMilked
+    // is correct even if the app was recently restarted.
+    private void HydrateFromDatabase(DataService dataService)
+    {
+        var recentEvents = dataService.GetRecentMilkingEvents(hours: 6);
+        foreach (var milkingEvent in recentEvents)
+        {
+            _recentMilkings.AddOrUpdate(
+                milkingEvent.AnimalId,
+                milkingEvent.Timestamp,
+                (_, existing) => milkingEvent.Timestamp > existing ? milkingEvent.Timestamp : existing);
+        }
     }
 
     public IDisposable Subscribe(Action<MilkingNotification> handler)
     {
-        // TODO: Implement subscription mechanism
-        // Return an IDisposable that removes the subscription when disposed
-        throw new NotImplementedException("Candidate should implement this method");
+        lock (_subscriberLock)
+        {
+            _subscribers.Add(handler);
+        }
+
+        return new Subscription(() =>
+        {
+            lock (_subscriberLock)
+            {
+                _subscribers.Remove(handler);
+            }
+        });
+    }
+
+    public void NotifyMilkingCompleted(MilkingNotification notification)
+    {
+        _recentMilkings[notification.AnimalId] = notification.Timestamp;
+
+        List<Action<MilkingNotification>> snapshot;
+
+        lock (_subscriberLock)
+        {
+            snapshot = [.. _subscribers];
+        }
+
+        foreach (var handler in snapshot)
+        {
+            try
+            {
+                handler(notification);
+            }
+            catch
+            {
+                /* one bad subscriber must not break the broadcast */
+            }
+        }
     }
 
     public bool WasRecentlyMilked(int animalId, int protectionWindowHours = 6)
     {
-        // TODO: Implement check for recent milking within the protection window
-        // This should be thread-safe and efficient
-        throw new NotImplementedException("Candidate should implement this method");
+        return _recentMilkings.TryGetValue(animalId, out var lastMilking)
+            && (DateTime.UtcNow - lastMilking).TotalHours < protectionWindowHours;
+    }
+
+    private sealed class Subscription(Action onDispose) : IDisposable
+    {
+        private readonly Action _onDispose = onDispose;
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                _onDispose();
+            }
+        }
     }
 }

@@ -1,5 +1,6 @@
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
+using MilkingSystem.Core.Notifications;
 using MilkingSystem.Core.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,6 +16,10 @@ builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
     containerBuilder.Register(c => new DataService(connectionString!))
         .AsSelf()
+        .SingleInstance();
+
+    containerBuilder.RegisterType<InMemoryRobotNotifier>()
+        .As<IRobotNotifier>()
         .SingleInstance();
 });
 

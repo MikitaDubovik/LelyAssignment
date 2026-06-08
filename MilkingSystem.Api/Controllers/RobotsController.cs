@@ -5,14 +5,9 @@ namespace MilkingSystem.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class RobotsController : ControllerBase
+public class RobotsController(DataService dataService) : ControllerBase
 {
-    private readonly DataService _dataService;
-
-    public RobotsController(DataService dataService)
-    {
-        _dataService = dataService;
-    }
+    private readonly DataService _dataService = dataService;
 
     [HttpGet]
     public IActionResult Get()
@@ -24,8 +19,10 @@ public class RobotsController : ControllerBase
     public IActionResult Get(int id)
     {
         var robot = _dataService.GetRobotById(id);
-        if (robot == null)
+        if (robot is null)
+        {
             return NotFound();
+        }
         return Ok(robot);
     }
 

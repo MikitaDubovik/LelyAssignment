@@ -5,14 +5,9 @@ namespace MilkingSystem.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AnimalsController : ControllerBase
+public class AnimalsController(DataService dataService) : ControllerBase
 {
-    private readonly DataService _dataService;
-
-    public AnimalsController(DataService dataService)
-    {
-        _dataService = dataService;
-    }
+    private readonly DataService _dataService = dataService;
 
     [HttpGet]
     public IActionResult Get()
@@ -25,8 +20,10 @@ public class AnimalsController : ControllerBase
     public IActionResult Get(int id)
     {
         var animal = _dataService.GetAnimalById(id);
-        if (animal == null)
+        if (animal is null)
+        {
             return NotFound();
+        }
         return Ok(animal);
     }
 
@@ -34,8 +31,10 @@ public class AnimalsController : ControllerBase
     public IActionResult GetByIdentificationNumber(string identificationNumber)
     {
         var animal = _dataService.GetAnimalByIdentificationNumber(identificationNumber);
-        if (animal == null)
+        if (animal is null)
+        {
             return NotFound();
+        }
         return Ok(animal);
     }
 

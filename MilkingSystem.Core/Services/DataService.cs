@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Data.SqlClient;
 using MilkingSystem.Core.Models;
 
@@ -7,14 +8,15 @@ namespace MilkingSystem.Core.Services;
 /// Main data service for the milking system.
 /// Handles all database operations for animals, milking events, and weight measurements.
 /// </summary>
-public class DataService
+public class DataService(string connectionString)
 {
-    private readonly string _connectionString;
+    private readonly string _connectionString = connectionString;
+    private readonly ConcurrentDictionary<int, SemaphoreSlim> _animalMilkingLocks = new();
 
-    public DataService(string connectionString)
-    {
-        _connectionString = connectionString;
-    }
+    // Returns a per-animal semaphore so callers can serialise the check-then-save
+    // for a single animal while allowing concurrent operations on different animals.
+    public SemaphoreSlim GetAnimalMilkingLock(int animalId)
+        => _animalMilkingLocks.GetOrAdd(animalId, _ => new SemaphoreSlim(1, 1));
 
     #region Animals
 
