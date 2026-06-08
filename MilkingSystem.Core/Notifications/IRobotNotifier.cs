@@ -36,5 +36,5 @@ public interface IRobotNotifier
     /// <param name="animalId">The animal ID to check.</param>
     /// <param name="protectionWindowHours">The number of hours to check back (default 6 hours).</param>
     /// <returns>True if the animal was recently milked and should NOT be milked again.</returns>
-    bool WasRecentlyMilked(int animalId, int protectionWindowHours = 6);
+    Task<bool> WasRecentlyMilked(int animalId, int protectionWindowHours = 6);
 }

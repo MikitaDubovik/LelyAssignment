@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using MilkingSystem.Core.Configuration;
 using MilkingSystem.Core.Repositories;
 
 namespace MilkingSystem.Core.Notifications;
@@ -13,40 +15,22 @@ namespace MilkingSystem.Core.Notifications;
 /// 3. Implement WasRecentlyMilked to check if an animal was milked within the protection window
 /// 4. Ensure thread-safety for concurrent access
 /// </summary>
-public class InMemoryRobotNotifier : IRobotNotifier
+public class InMemoryRobotNotifier(
+    IMilkingEventRepository milkingEventRepository,
+    IOptions<MilkingSettings> settings,
+    ILogger<InMemoryRobotNotifier> logger) : IRobotNotifier
 {
-    // AnimalId - timestamp of last completed milking
     private readonly ConcurrentDictionary<int, DateTime> _recentMilkings = new();
 
     private readonly List<Action<MilkingNotification>> _subscribers = [];
     private readonly Lock _subscriberLock = new();
-    private readonly ILogger<InMemoryRobotNotifier> _logger;
 
-    public InMemoryRobotNotifier(IMilkingEventRepository milkingEventRepository, ILogger<InMemoryRobotNotifier> logger)
-    {
-        _logger = logger;
+    private readonly int _protectionWindowHours = settings.Value.ProtectionWindowHours;
 
-        //This is discussable. I know that it's not the common approach everywhere
-        //Some projects like to have a backend that can work without a DB connection at all
-        //But in this test scenario, if we can make a GET to grab necessary data then I would prefer the app to fail on Startup
-        HydrateFromDatabase(milkingEventRepository);
-    }
+    // Double-check lock for one-time hydration.
+    private volatile bool _isHydrated;
+    private readonly SemaphoreSlim _hydrationLock = new(1, 1);
 
-    // On startup, populate in-memory state from the DB so WasRecentlyMilked
-    // is correct even if the app was recently restarted.
-    private void HydrateFromDatabase(IMilkingEventRepository milkingEventRepository)
-    {
-        // Constructor cannot await — GetAwaiter().GetResult() is acceptable here because
-        // this runs once at startup, outside the request pipeline, with no deadlock risk.
-        var recentEvents = milkingEventRepository.GetRecentMilkingEvents(hours: 6).GetAwaiter().GetResult();
-        foreach (var milkingEvent in recentEvents)
-        {
-            _recentMilkings.AddOrUpdate(
-                milkingEvent.AnimalId,
-                milkingEvent.Timestamp,
-                (_, existing) => milkingEvent.Timestamp > existing ? milkingEvent.Timestamp : existing);
-        }
-    }
 
     public IDisposable Subscribe(Action<MilkingNotification> handler)
     {
@@ -84,7 +68,7 @@ public class InMemoryRobotNotifier : IRobotNotifier
             catch (Exception ex)
             {
                 // One bad subscriber must not break the broadcast, but failures must not be silent.
-                _logger.LogError(ex,
+                logger.LogError(ex,
                     "Milking notification subscriber {DeclaringType}.{HandlerMethod} threw an unhandled exception for AnimalId={AnimalId}, RobotId={RobotId}",
                     handler.Method.DeclaringType?.Name,
                     handler.Method.Name,
@@ -94,10 +78,43 @@ public class InMemoryRobotNotifier : IRobotNotifier
         }
     }
 
-    public bool WasRecentlyMilked(int animalId, int protectionWindowHours = 6)
+    public async Task<bool> WasRecentlyMilked(int animalId, int protectionWindowHours = 6)
     {
+        await EnsureHydrated();
         return _recentMilkings.TryGetValue(animalId, out var lastMilking)
             && (DateTime.UtcNow - lastMilking).TotalHours < protectionWindowHours;
+    }
+
+    private async Task EnsureHydrated()
+    {
+        if (_isHydrated)
+        {
+            return;
+        }
+
+        await _hydrationLock.WaitAsync();
+        try
+        {
+            if (_isHydrated)
+            {
+                return; // another thread hydrated while we were waiting for the lock
+            }
+
+            var recentEvents = await milkingEventRepository.GetRecentMilkingEvents(_protectionWindowHours);
+            foreach (var milkingEvent in recentEvents)
+            {
+                _recentMilkings.AddOrUpdate(
+                    milkingEvent.AnimalId,
+                    milkingEvent.Timestamp,
+                    (_, existing) => milkingEvent.Timestamp > existing ? milkingEvent.Timestamp : existing);
+            }
+
+            _isHydrated = true;
+        }
+        finally
+        {
+            _hydrationLock.Release();
+        }
     }
 
     private sealed class Subscription(Action onDispose) : IDisposable

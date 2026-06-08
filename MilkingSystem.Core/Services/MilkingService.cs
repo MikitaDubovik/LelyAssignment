@@ -66,7 +66,7 @@ public class MilkingService(
         var effectiveTimestamp = timestamp?.ToUniversalTime() ?? DateTime.UtcNow;
 
         // Fast pre-check using in-memory state - avoids lock acquisition for the common case.
-        if (_notifier.WasRecentlyMilked(animalId, _protectionWindowHours))
+        if (await _notifier.WasRecentlyMilked(animalId, _protectionWindowHours))
         {
             return new MilkingServiceResult { Status = MilkingServiceStatus.RecentlyMilked };
         }
