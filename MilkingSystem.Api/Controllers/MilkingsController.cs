@@ -78,20 +78,23 @@ public class MilkingsController(DataService dataService, IRobotNotifier notifier
 
         var timestamp = request.Timestamp?.ToUniversalTime() ?? DateTime.UtcNow;
 
-        // Per-animal lock: different animals can be processed in parallel;
-        // the same animal is serialised so the check-then-save is atomic.
+        if (_notifier.WasRecentlyMilked(request.AnimalId))
+        {
+            return Conflict(new { error = "Animal was milked too recently" });
+        }
+
         var animalLock = _dataService.GetAnimalMilkingLock(request.AnimalId);
         await animalLock.WaitAsync();
         try
         {
-            if (_notifier.WasRecentlyMilked(request.AnimalId))
+            var lastMilking = _dataService.GetLastMilkingForAnimal(request.AnimalId);
+            if (lastMilking is not null && (DateTime.UtcNow - lastMilking.Timestamp).TotalHours < 6)
             {
-                var lastMilking = _dataService.GetLastMilkingForAnimal(request.AnimalId);
                 return Conflict(new
                 {
                     error = "Animal was milked too recently",
-                    lastMilkedAt = lastMilking?.Timestamp,
-                    nextAllowedAt = lastMilking?.Timestamp.AddHours(6)
+                    lastMilkedAt = lastMilking.Timestamp,
+                    nextAllowedAt = lastMilking.Timestamp.AddHours(6)
                 });
             }
 

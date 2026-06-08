@@ -37,14 +37,32 @@ public class WeightsController(DataService dataService) : ControllerBase
         return Ok(lastMeasurement);
     }
 
-    // TODO: Candidate should implement this endpoint
-    // [HttpPost]
-    // public IActionResult RecordWeight([FromBody] RecordWeightRequest request)
-    // {
-    //     // Implementation needed:
-    //     // 1. Validate the request
-    //     // 2. Check if animal exists
-    //     // 3. Check if robot exists and is active
-    //     // 4. Save the weight measurement
-    // }
+    [HttpPost]
+    public IActionResult RecordWeight([FromBody] RecordWeightRequest request)
+    {
+        if (request.WeightKg <= 0)
+        {
+            return BadRequest(new { error = "WeightKg must be greater than zero" });
+        }
+
+        var animal = _dataService.GetAnimalById(request.AnimalId);
+        if (animal is null)
+        {
+            return NotFound(new { error = "Animal not found" });
+        }
+
+        var robot = _dataService.GetRobotById(request.RobotId);
+        if (robot is null)
+        {
+            return NotFound(new { error = "Robot not found" });
+        }
+        if (!robot.IsActive)
+        {
+            return UnprocessableEntity(new { error = "Robot is not active" });
+        }
+
+        var timestamp = request.Timestamp?.ToUniversalTime() ?? DateTime.UtcNow;
+        var id = _dataService.SaveWeightMeasurement(request.AnimalId, request.RobotId, timestamp, request.WeightKg);
+        return Ok(new { id });
+    }
 }

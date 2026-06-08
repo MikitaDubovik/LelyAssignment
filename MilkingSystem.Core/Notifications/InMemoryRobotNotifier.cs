@@ -14,7 +14,7 @@ namespace MilkingSystem.Core.Notifications;
 /// </summary>
 public class InMemoryRobotNotifier : IRobotNotifier
 {
-    // AnimalId → timestamp of last completed milking
+    // AnimalId - timestamp of last completed milking
     private readonly ConcurrentDictionary<int, DateTime> _recentMilkings = new();
 
     private readonly List<Action<MilkingNotification>> _subscribers = [];

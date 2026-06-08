@@ -25,6 +25,18 @@ builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
 
 var app = builder.Build();
 
+// Register an application-lifetime audit subscriber.
+// Any component that needs to react to milking events can subscribe here.
+// The subscription lives for the lifetime of the app — no need to dispose it.
+var notifier = app.Services.GetRequiredService<IRobotNotifier>();
+notifier.Subscribe(notification =>
+    app.Logger.LogInformation(
+        "Milking completed — animal {AnimalId} ({IdentificationNumber}) by robot {RobotId} at {Timestamp:u}",
+        notification.AnimalId,
+        notification.AnimalIdentificationNumber,
+        notification.RobotId,
+        notification.Timestamp));
+
 // Configure the HTTP request pipeline.
 app.UseHttpsRedirection();
 app.UseAuthorization();
