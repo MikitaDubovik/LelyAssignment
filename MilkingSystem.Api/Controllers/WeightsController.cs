@@ -1,4 +1,3 @@
-using Autofac;
 using Microsoft.AspNetCore.Mvc;
 using MilkingSystem.Core.Services;
 
@@ -18,30 +17,25 @@ namespace MilkingSystem.Api.Controllers;
 [Route("api/[controller]")]
 public class WeightsController : ControllerBase
 {
-    private readonly ILifetimeScope _scope;
+    private readonly DataService _dataService;
 
-    public WeightsController(ILifetimeScope scope)
+    public WeightsController(DataService dataService)
     {
-        _scope = scope;
+        _dataService = dataService;
     }
 
     [HttpGet("animal/{animalId}")]
     public IActionResult GetForAnimal(int animalId)
     {
-        var dataService = _scope.Resolve<DataService>();
-        var measurements = dataService.GetWeightMeasurementsForAnimal(animalId);
-        return Ok(measurements);
+        return Ok(_dataService.GetWeightMeasurementsForAnimal(animalId));
     }
 
     [HttpGet("animal/{animalId}/last")]
     public IActionResult GetLastForAnimal(int animalId)
     {
-        var dataService = _scope.Resolve<DataService>();
-        var lastMeasurement = dataService.GetLastWeightForAnimal(animalId);
-        
+        var lastMeasurement = _dataService.GetLastWeightForAnimal(animalId);
         if (lastMeasurement == null)
             return NotFound();
-        
         return Ok(lastMeasurement);
     }
 

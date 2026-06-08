@@ -1,4 +1,4 @@
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using MilkingSystem.Core.Models;
 
 namespace MilkingSystem.Core.Services;
@@ -9,13 +9,11 @@ namespace MilkingSystem.Core.Services;
 /// </summary>
 public class DataService
 {
-    private string _connectionString;
-    public static DataService? Instance;
+    private readonly string _connectionString;
 
     public DataService(string connectionString)
     {
         _connectionString = connectionString;
-        Instance = this;
     }
 
     #region Animals
@@ -46,63 +44,57 @@ public class DataService
 
     public Animal? GetAnimalById(int id)
     {
-        using (var conn = new SqlConnection(_connectionString))
+        using var conn = new SqlConnection(_connectionString);
+        conn.Open();
+        var cmd = new SqlCommand("SELECT * FROM Animals WHERE Id = " + id, conn); // SQL concatenation
+        var reader = cmd.ExecuteReader();
+        if (reader.Read())
         {
-            conn.Open();
-            var cmd = new SqlCommand("SELECT * FROM Animals WHERE Id = " + id, conn); // SQL concatenation
-            var reader = cmd.ExecuteReader();
-            if (reader.Read())
+            return new Animal
             {
-                return new Animal
-                {
-                    Id = (int)reader["Id"],
-                    IdentificationNumber = reader["IdentificationNumber"].ToString()!,
-                    Name = reader["Name"] as string,
-                    BirthDate = reader["BirthDate"] as DateTime?,
-                    CreatedAt = (DateTime)reader["CreatedAt"],
-                    UpdatedAt = (DateTime)reader["UpdatedAt"]
-                };
-            }
+                Id = (int)reader["Id"],
+                IdentificationNumber = reader["IdentificationNumber"].ToString()!,
+                Name = reader["Name"] as string,
+                BirthDate = reader["BirthDate"] as DateTime?,
+                CreatedAt = (DateTime)reader["CreatedAt"],
+                UpdatedAt = (DateTime)reader["UpdatedAt"]
+            };
         }
         return null;
     }
 
     public Animal? GetAnimalByIdentificationNumber(string identificationNumber)
     {
-        using (var conn = new SqlConnection(_connectionString))
+        using var conn = new SqlConnection(_connectionString);
+        conn.Open();
+        var cmd = new SqlCommand("SELECT * FROM Animals WHERE IdentificationNumber = '" + identificationNumber + "'", conn);
+        var reader = cmd.ExecuteReader();
+        if (reader.Read())
         {
-            conn.Open();
-            var cmd = new SqlCommand("SELECT * FROM Animals WHERE IdentificationNumber = '" + identificationNumber + "'", conn);
-            var reader = cmd.ExecuteReader();
-            if (reader.Read())
+            return new Animal
             {
-                return new Animal
-                {
-                    Id = (int)reader["Id"],
-                    IdentificationNumber = reader["IdentificationNumber"].ToString()!,
-                    Name = reader["Name"] as string,
-                    BirthDate = reader["BirthDate"] as DateTime?,
-                    CreatedAt = (DateTime)reader["CreatedAt"],
-                    UpdatedAt = (DateTime)reader["UpdatedAt"]
-                };
-            }
+                Id = (int)reader["Id"],
+                IdentificationNumber = reader["IdentificationNumber"].ToString()!,
+                Name = reader["Name"] as string,
+                BirthDate = reader["BirthDate"] as DateTime?,
+                CreatedAt = (DateTime)reader["CreatedAt"],
+                UpdatedAt = (DateTime)reader["UpdatedAt"]
+            };
         }
         return null;
     }
 
     public int CreateAnimal(string identificationNumber, string? name, DateTime? birthDate)
     {
-        using (var conn = new SqlConnection(_connectionString))
-        {
-            conn.Open();
-            var cmd = new SqlCommand(@"INSERT INTO Animals (IdentificationNumber, Name, BirthDate) 
+        using var conn = new SqlConnection(_connectionString);
+        conn.Open();
+        var cmd = new SqlCommand(@"INSERT INTO Animals (IdentificationNumber, Name, BirthDate) 
                                        OUTPUT INSERTED.Id 
                                        VALUES (@IdentificationNumber, @Name, @BirthDate)", conn);
-            cmd.Parameters.AddWithValue("@IdentificationNumber", identificationNumber);
-            cmd.Parameters.AddWithValue("@Name", (object?)name ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@BirthDate", (object?)birthDate ?? DBNull.Value);
-            return (int)cmd.ExecuteScalar();
-        }
+        cmd.Parameters.AddWithValue("@IdentificationNumber", identificationNumber);
+        cmd.Parameters.AddWithValue("@Name", (object?)name ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@BirthDate", (object?)birthDate ?? DBNull.Value);
+        return (int)cmd.ExecuteScalar();
     }
 
     #endregion
@@ -112,8 +104,7 @@ public class DataService
     public List<Robot> GetAllRobots()
     {
         var robots = new List<Robot>();
-        var conn = new SqlConnection(_connectionString);
-        try
+        using (var conn = new SqlConnection(_connectionString))
         {
             conn.Open();
             var cmd = new SqlCommand("SELECT * FROM Robots", conn);
@@ -131,38 +122,27 @@ public class DataService
                 });
             }
         }
-        catch (Exception ex)
-        {
-            // Swallow exception - legacy behavior
-            Console.WriteLine("Error: " + ex.Message);
-        }
-        finally
-        {
-            conn.Close();
-        }
         return robots;
     }
 
     public Robot? GetRobotById(int id)
     {
-        using (var conn = new SqlConnection(_connectionString))
+        using var conn = new SqlConnection(_connectionString);
+        conn.Open();
+        var cmd = new SqlCommand("SELECT * FROM Robots WHERE Id = @Id", conn);
+        cmd.Parameters.AddWithValue("@Id", id);
+        var reader = cmd.ExecuteReader();
+        if (reader.Read())
         {
-            conn.Open();
-            var cmd = new SqlCommand("SELECT * FROM Robots WHERE Id = @Id", conn);
-            cmd.Parameters.AddWithValue("@Id", id);
-            var reader = cmd.ExecuteReader();
-            if (reader.Read())
+            return new Robot
             {
-                return new Robot
-                {
-                    Id = (int)reader["Id"],
-                    Name = reader["Name"].ToString()!,
-                    Location = reader["Location"] as string,
-                    IsActive = (bool)reader["IsActive"],
-                    CreatedAt = (DateTime)reader["CreatedAt"],
-                    UpdatedAt = (DateTime)reader["UpdatedAt"]
-                };
-            }
+                Id = (int)reader["Id"],
+                Name = reader["Name"].ToString()!,
+                Location = reader["Location"] as string,
+                IsActive = (bool)reader["IsActive"],
+                CreatedAt = (DateTime)reader["CreatedAt"],
+                UpdatedAt = (DateTime)reader["UpdatedAt"]
+            };
         }
         return null;
     }
@@ -213,35 +193,31 @@ public class DataService
 
     public MilkingEvent? GetLastMilkingForAnimal(int animalId)
     {
-        using (var conn = new SqlConnection(_connectionString))
+        using var conn = new SqlConnection(_connectionString);
+        conn.Open();
+        var cmd = new SqlCommand("SELECT TOP 1 * FROM MilkingEvents WHERE AnimalId = @AnimalId ORDER BY Timestamp DESC", conn);
+        cmd.Parameters.AddWithValue("@AnimalId", animalId);
+        var reader = cmd.ExecuteReader();
+        if (reader.Read())
         {
-            conn.Open();
-            var cmd = new SqlCommand("SELECT TOP 1 * FROM MilkingEvents WHERE AnimalId = @AnimalId ORDER BY Timestamp DESC", conn);
-            cmd.Parameters.AddWithValue("@AnimalId", animalId);
-            var reader = cmd.ExecuteReader();
-            if (reader.Read())
-            {
-                return MapMilkingEvent(reader);
-            }
+            return MapMilkingEvent(reader);
         }
         return null;
     }
 
     public int SaveMilkingEvent(int animalId, int robotId, DateTime timestamp, decimal milkYieldLiters, int? duration)
     {
-        using (var conn = new SqlConnection(_connectionString))
-        {
-            conn.Open();
-            var cmd = new SqlCommand(@"INSERT INTO MilkingEvents (AnimalId, RobotId, Timestamp, MilkYieldLiters, Duration) 
+        using var conn = new SqlConnection(_connectionString);
+        conn.Open();
+        var cmd = new SqlCommand(@"INSERT INTO MilkingEvents (AnimalId, RobotId, Timestamp, MilkYieldLiters, Duration) 
                                        OUTPUT INSERTED.Id 
                                        VALUES (@AnimalId, @RobotId, @Timestamp, @MilkYieldLiters, @Duration)", conn);
-            cmd.Parameters.AddWithValue("@AnimalId", animalId);
-            cmd.Parameters.AddWithValue("@RobotId", robotId);
-            cmd.Parameters.AddWithValue("@Timestamp", timestamp);
-            cmd.Parameters.AddWithValue("@MilkYieldLiters", milkYieldLiters);
-            cmd.Parameters.AddWithValue("@Duration", (object?)duration ?? DBNull.Value);
-            return (int)cmd.ExecuteScalar();
-        }
+        cmd.Parameters.AddWithValue("@AnimalId", animalId);
+        cmd.Parameters.AddWithValue("@RobotId", robotId);
+        cmd.Parameters.AddWithValue("@Timestamp", timestamp);
+        cmd.Parameters.AddWithValue("@MilkYieldLiters", milkYieldLiters);
+        cmd.Parameters.AddWithValue("@Duration", (object?)duration ?? DBNull.Value);
+        return (int)cmd.ExecuteScalar();
     }
 
     public List<MilkingEvent> GetRecentMilkingEvents(int hours = 24)
@@ -305,40 +281,36 @@ public class DataService
 
     public int SaveWeightMeasurement(int animalId, int robotId, DateTime timestamp, decimal weightKg)
     {
-        using (var conn = new SqlConnection(_connectionString))
-        {
-            conn.Open();
-            var cmd = new SqlCommand(@"INSERT INTO WeightMeasurements (AnimalId, RobotId, Timestamp, WeightKg) 
+        using var conn = new SqlConnection(_connectionString);
+        conn.Open();
+        var cmd = new SqlCommand(@"INSERT INTO WeightMeasurements (AnimalId, RobotId, Timestamp, WeightKg) 
                                        OUTPUT INSERTED.Id 
                                        VALUES (@AnimalId, @RobotId, @Timestamp, @WeightKg)", conn);
-            cmd.Parameters.AddWithValue("@AnimalId", animalId);
-            cmd.Parameters.AddWithValue("@RobotId", robotId);
-            cmd.Parameters.AddWithValue("@Timestamp", timestamp);
-            cmd.Parameters.AddWithValue("@WeightKg", weightKg);
-            return (int)cmd.ExecuteScalar();
-        }
+        cmd.Parameters.AddWithValue("@AnimalId", animalId);
+        cmd.Parameters.AddWithValue("@RobotId", robotId);
+        cmd.Parameters.AddWithValue("@Timestamp", timestamp);
+        cmd.Parameters.AddWithValue("@WeightKg", weightKg);
+        return (int)cmd.ExecuteScalar();
     }
 
     public WeightMeasurement? GetLastWeightForAnimal(int animalId)
     {
-        using (var conn = new SqlConnection(_connectionString))
+        using var conn = new SqlConnection(_connectionString);
+        conn.Open();
+        var cmd = new SqlCommand("SELECT TOP 1 * FROM WeightMeasurements WHERE AnimalId = @AnimalId ORDER BY Timestamp DESC", conn);
+        cmd.Parameters.AddWithValue("@AnimalId", animalId);
+        var reader = cmd.ExecuteReader();
+        if (reader.Read())
         {
-            conn.Open();
-            var cmd = new SqlCommand("SELECT TOP 1 * FROM WeightMeasurements WHERE AnimalId = @AnimalId ORDER BY Timestamp DESC", conn);
-            cmd.Parameters.AddWithValue("@AnimalId", animalId);
-            var reader = cmd.ExecuteReader();
-            if (reader.Read())
+            return new WeightMeasurement
             {
-                return new WeightMeasurement
-                {
-                    Id = (int)reader["Id"],
-                    AnimalId = (int)reader["AnimalId"],
-                    RobotId = (int)reader["RobotId"],
-                    Timestamp = (DateTime)reader["Timestamp"],
-                    WeightKg = (decimal)reader["WeightKg"],
-                    CreatedAt = (DateTime)reader["CreatedAt"]
-                };
-            }
+                Id = (int)reader["Id"],
+                AnimalId = (int)reader["AnimalId"],
+                RobotId = (int)reader["RobotId"],
+                Timestamp = (DateTime)reader["Timestamp"],
+                WeightKg = (decimal)reader["WeightKg"],
+                CreatedAt = (DateTime)reader["CreatedAt"]
+            };
         }
         return null;
     }
@@ -350,15 +322,16 @@ public class DataService
     public Dictionary<int, decimal> GetTotalMilkYieldByAnimal(DateTime from, DateTime to)
     {
         var result = new Dictionary<int, decimal>();
-        var conn = new SqlConnection(_connectionString);
-        conn.Open();
-        var cmd = new SqlCommand($"SELECT AnimalId, SUM(MilkYieldLiters) as Total FROM MilkingEvents WHERE Timestamp BETWEEN '{from:yyyy-MM-dd}' AND '{to:yyyy-MM-dd}' GROUP BY AnimalId", conn);
-        var reader = cmd.ExecuteReader();
-        while (reader.Read())
+        using (var conn = new SqlConnection(_connectionString))
         {
-            result[(int)reader["AnimalId"]] = (decimal)reader["Total"];
+            conn.Open();
+            var cmd = new SqlCommand($"SELECT AnimalId, SUM(MilkYieldLiters) as Total FROM MilkingEvents WHERE Timestamp BETWEEN '{from:yyyy-MM-dd}' AND '{to:yyyy-MM-dd}' GROUP BY AnimalId", conn);
+            var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                result[(int)reader["AnimalId"]] = (decimal)reader["Total"];
+            }
         }
-        conn.Close();
         return result;
     }
 
@@ -366,14 +339,12 @@ public class DataService
     {
         try
         {
-            using (var conn = new SqlConnection(_connectionString))
-            {
-                conn.Open();
-                var cmd = new SqlCommand("SELECT AVG(MilkYieldLiters) FROM MilkingEvents WHERE AnimalId = " + animalId, conn);
-                var result = cmd.ExecuteScalar();
-                if (result != DBNull.Value)
-                    return Convert.ToDouble(result);
-            }
+            using var conn = new SqlConnection(_connectionString);
+            conn.Open();
+            var cmd = new SqlCommand("SELECT AVG(MilkYieldLiters) FROM MilkingEvents WHERE AnimalId = " + animalId, conn);
+            var result = cmd.ExecuteScalar();
+            if (result != DBNull.Value)
+                return Convert.ToDouble(result);
         }
         catch
         {

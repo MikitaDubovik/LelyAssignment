@@ -1,6 +1,4 @@
-using Autofac;
 using Microsoft.AspNetCore.Mvc;
-using MilkingSystem.Core.Models;
 using MilkingSystem.Core.Services;
 
 namespace MilkingSystem.Api.Controllers;
@@ -26,39 +24,32 @@ namespace MilkingSystem.Api.Controllers;
 [Route("api/[controller]")]
 public class MilkingsController : ControllerBase
 {
-    private readonly ILifetimeScope _scope;
+    private readonly DataService _dataService;
 
-    public MilkingsController(ILifetimeScope scope)
+    public MilkingsController(DataService dataService)
     {
-        _scope = scope;
+        _dataService = dataService;
     }
 
     [HttpGet("animal/{animalId}")]
     public IActionResult GetForAnimal(int animalId)
     {
-        var dataService = _scope.Resolve<DataService>();
-        var events = dataService.GetMilkingEventsForAnimal(animalId);
-        return Ok(events);
+        return Ok(_dataService.GetMilkingEventsForAnimal(animalId));
     }
 
     [HttpGet("animal/{animalId}/last")]
     public IActionResult GetLastForAnimal(int animalId)
     {
-        var dataService = _scope.Resolve<DataService>();
-        var lastEvent = dataService.GetLastMilkingForAnimal(animalId);
-        
+        var lastEvent = _dataService.GetLastMilkingForAnimal(animalId);
         if (lastEvent == null)
             return NotFound();
-        
         return Ok(lastEvent);
     }
 
     [HttpGet("recent")]
     public IActionResult GetRecent([FromQuery] int hours = 24)
     {
-        var dataService = _scope.Resolve<DataService>();
-        var events = dataService.GetRecentMilkingEvents(hours);
-        return Ok(events);
+        return Ok(_dataService.GetRecentMilkingEvents(hours));
     }
 
     // TODO: Candidate should implement this endpoint
