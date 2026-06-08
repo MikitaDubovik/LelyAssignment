@@ -1,5 +1,6 @@
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
+using MilkingSystem.Core.Configuration;
 using MilkingSystem.Core.Notifications;
 using MilkingSystem.Core.Services;
 
@@ -7,6 +8,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
+builder.Services.Configure<MilkingSettings>(
+    builder.Configuration.GetSection(nameof(MilkingSettings)));
 
 // Configure Autofac
 builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory());
@@ -21,6 +24,14 @@ builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
     containerBuilder.RegisterType<InMemoryRobotNotifier>()
         .As<IRobotNotifier>()
         .SingleInstance();
+
+    containerBuilder.RegisterType<MilkingService>()
+        .As<IMilkingService>()
+        .InstancePerLifetimeScope();
+
+    containerBuilder.RegisterType<WeightService>()
+        .As<IWeightService>()
+        .InstancePerLifetimeScope();
 });
 
 var app = builder.Build();

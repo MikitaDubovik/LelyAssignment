@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MilkingSystem.Api.Models;
+using MilkingSystem.Core.Results;
 using MilkingSystem.Core.Services;
 
 namespace MilkingSystem.Api.Controllers;
@@ -16,8 +17,9 @@ namespace MilkingSystem.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public class WeightsController(DataService dataService) : ControllerBase
+public class WeightsController(IWeightService weightService, DataService dataService) : ControllerBase
 {
+    private readonly IWeightService _weightService = weightService;
     private readonly DataService _dataService = dataService;
 
     [HttpGet("animal/{animalId}")]
@@ -40,29 +42,18 @@ public class WeightsController(DataService dataService) : ControllerBase
     [HttpPost]
     public IActionResult RecordWeight([FromBody] RecordWeightRequest request)
     {
-        if (request.WeightKg <= 0)
-        {
-            return BadRequest(new { error = "WeightKg must be greater than zero" });
-        }
+        var result = _weightService.RecordWeight(
+            request.AnimalId, request.RobotId,
+            request.WeightKg, request.Timestamp);
 
-        var animal = _dataService.GetAnimalById(request.AnimalId);
-        if (animal is null)
+        return result.Status switch
         {
-            return NotFound(new { error = "Animal not found" });
-        }
-
-        var robot = _dataService.GetRobotById(request.RobotId);
-        if (robot is null)
-        {
-            return NotFound(new { error = "Robot not found" });
-        }
-        if (!robot.IsActive)
-        {
-            return UnprocessableEntity(new { error = "Robot is not active" });
-        }
-
-        var timestamp = request.Timestamp?.ToUniversalTime() ?? DateTime.UtcNow;
-        var id = _dataService.SaveWeightMeasurement(request.AnimalId, request.RobotId, timestamp, request.WeightKg);
-        return Ok(new { id });
+            WeightServiceStatus.WeightIsIncorrect => BadRequest(new { error = "WeightKg must be greater than zero" }),
+            WeightServiceStatus.Success => Ok(new { id = result.MeasurementId }),
+            WeightServiceStatus.AnimalNotFound => NotFound(new { error = "Animal not found" }),
+            WeightServiceStatus.RobotNotFound => NotFound(new { error = "Robot not found" }),
+            WeightServiceStatus.RobotNotActive => UnprocessableEntity(new { error = "Robot is not active" }),
+            _ => StatusCode(500, new { error = "Unexpected error" })
+        };
     }
 }

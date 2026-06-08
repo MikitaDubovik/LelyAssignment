@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MilkingSystem.Api.Models;
-using MilkingSystem.Core.Notifications;
+using MilkingSystem.Core.Results;
 using MilkingSystem.Core.Services;
 
 namespace MilkingSystem.Api.Controllers;
@@ -24,10 +24,10 @@ namespace MilkingSystem.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public class MilkingsController(DataService dataService, IRobotNotifier notifier) : ControllerBase
+public class MilkingsController(DataService dataService, IMilkingService milkingService) : ControllerBase
 {
     private readonly DataService _dataService = dataService;
-    private readonly IRobotNotifier _notifier = notifier;
+    private readonly IMilkingService _milkingService = milkingService;
 
     [HttpGet("animal/{animalId}")]
     public IActionResult GetForAnimal(int animalId)
@@ -55,66 +55,25 @@ public class MilkingsController(DataService dataService, IRobotNotifier notifier
     [HttpPost]
     public async Task<IActionResult> RecordMilking([FromBody] RecordMilkingRequest request)
     {
-        if (request.MilkYieldLiters <= 0)
-        {
-            return BadRequest(new { error = "MilkYieldLiters must be greater than zero" });
-        }
+        var result = await _milkingService.RecordMilking(
+            request.AnimalId, request.RobotId,
+            request.MilkYieldLiters, request.Duration,
+            request.Timestamp);
 
-        var animal = _dataService.GetAnimalById(request.AnimalId);
-        if (animal is null)
+        return result.Status switch
         {
-            return NotFound(new { error = "Animal not found" });
-        }
-
-        var robot = _dataService.GetRobotById(request.RobotId);
-        if (robot is null)
-        {
-            return NotFound(new { error = "Robot not found" });
-        }
-        if (!robot.IsActive)
-        {
-            return UnprocessableEntity(new { error = "Robot is not active" });
-        }
-
-        var timestamp = request.Timestamp?.ToUniversalTime() ?? DateTime.UtcNow;
-
-        if (_notifier.WasRecentlyMilked(request.AnimalId))
-        {
-            return Conflict(new { error = "Animal was milked too recently" });
-        }
-
-        var animalLock = _dataService.GetAnimalMilkingLock(request.AnimalId);
-        await animalLock.WaitAsync();
-        try
-        {
-            var lastMilking = _dataService.GetLastMilkingForAnimal(request.AnimalId);
-            if (lastMilking is not null && (DateTime.UtcNow - lastMilking.Timestamp).TotalHours < 6)
+            MilkingServiceStatus.MilkAmountIsIncorrect => BadRequest(new { error = "MilkYieldLiters must be greater than zero" }),
+            MilkingServiceStatus.Success => Ok(new { id = result.EventId }),
+            MilkingServiceStatus.AnimalNotFound => NotFound(new { error = "Animal not found" }),
+            MilkingServiceStatus.RobotNotFound => NotFound(new { error = "Robot not found" }),
+            MilkingServiceStatus.RobotNotActive => UnprocessableEntity(new { error = "Robot is not active" }),
+            MilkingServiceStatus.RecentlyMilked => Conflict(new
             {
-                return Conflict(new
-                {
-                    error = "Animal was milked too recently",
-                    lastMilkedAt = lastMilking.Timestamp,
-                    nextAllowedAt = lastMilking.Timestamp.AddHours(6)
-                });
-            }
-
-            var id = _dataService.SaveMilkingEvent(
-                request.AnimalId, request.RobotId, timestamp,
-                request.MilkYieldLiters, request.Duration);
-
-            _notifier.NotifyMilkingCompleted(new MilkingNotification
-            {
-                AnimalId = request.AnimalId,
-                RobotId = request.RobotId,
-                Timestamp = timestamp,
-                AnimalIdentificationNumber = animal.IdentificationNumber
-            });
-
-            return Ok(new { id });
-        }
-        finally
-        {
-            animalLock.Release();
-        }
+                error = "Animal was milked too recently",
+                lastMilkedAt = result.LastMilkedAt,
+                nextAllowedAt = result.NextAllowedAt
+            }),
+            _ => StatusCode(500, new { error = "Unexpected error" })
+        };
     }
 }

@@ -4,6 +4,7 @@ using MilkingSystem.Core.Models;
 
 namespace MilkingSystem.Core.Services;
 
+//TODO This class can go in a separate project (MilkingSystem.Database for example) and then it can be splitted
 /// <summary>
 /// Main data service for the milking system.
 /// Handles all database operations for animals, milking events, and weight measurements.
