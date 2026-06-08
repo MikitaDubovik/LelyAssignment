@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using MilkingSystem.Core.Services;
+using MilkingSystem.Core.Repositories;
 
 namespace MilkingSystem.Core.Notifications;
 
@@ -20,19 +20,19 @@ public class InMemoryRobotNotifier : IRobotNotifier
     private readonly List<Action<MilkingNotification>> _subscribers = [];
     private readonly Lock _subscriberLock = new();
 
-    public InMemoryRobotNotifier(DataService dataService)
+    public InMemoryRobotNotifier(IMilkingEventRepository milkingEventRepository)
     {
         //This is discussable. I know that it's not the common approach everywhere
         //Some projects like to have a backend that can work without a DB connection at all
         //But in this test scenario, if we can make a GET to grab necessary data then I would prefer the app to fail on Startup
-        HydrateFromDatabase(dataService);
+        HydrateFromDatabase(milkingEventRepository);
     }
 
     // On startup, populate in-memory state from the DB so WasRecentlyMilked
     // is correct even if the app was recently restarted.
-    private void HydrateFromDatabase(DataService dataService)
+    private void HydrateFromDatabase(IMilkingEventRepository milkingEventRepository)
     {
-        var recentEvents = dataService.GetRecentMilkingEvents(hours: 6);
+        var recentEvents = milkingEventRepository.GetRecentMilkingEvents(hours: 6);
         foreach (var milkingEvent in recentEvents)
         {
             _recentMilkings.AddOrUpdate(
@@ -95,7 +95,7 @@ public class InMemoryRobotNotifier : IRobotNotifier
 
         public void Dispose()
         {
-            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            if (Interlocked.Exchange(ref _disposed, 1) is 0)
             {
                 _onDispose();
             }

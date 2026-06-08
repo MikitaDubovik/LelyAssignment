@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MilkingSystem.Api.Models;
+using MilkingSystem.Core.Repositories;
 using MilkingSystem.Core.Results;
 using MilkingSystem.Core.Services;
 
@@ -7,9 +8,9 @@ namespace MilkingSystem.Api.Controllers;
 
 /// <summary>
 /// Controller for weight measurements.
-/// 
+///
 /// TODO: Candidates should implement POST endpoint for recording weight measurements.
-/// 
+///
 /// Requirements:
 /// - Accept weight data from robots (animalId, robotId, weightKg)
 /// - Validate that animal and robot exist
@@ -17,21 +18,21 @@ namespace MilkingSystem.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public class WeightsController(IWeightService weightService, DataService dataService) : ControllerBase
+public class WeightsController(IWeightMeasurementRepository weightMeasurementRepository, IWeightService weightService) : ControllerBase
 {
+    private readonly IWeightMeasurementRepository _weightMeasurementRepository = weightMeasurementRepository;
     private readonly IWeightService _weightService = weightService;
-    private readonly DataService _dataService = dataService;
 
     [HttpGet("animal/{animalId}")]
     public IActionResult GetForAnimal(int animalId)
     {
-        return Ok(_dataService.GetWeightMeasurementsForAnimal(animalId));
+        return Ok(_weightMeasurementRepository.GetWeightMeasurementsForAnimal(animalId));
     }
 
     [HttpGet("animal/{animalId}/last")]
     public IActionResult GetLastForAnimal(int animalId)
     {
-        var lastMeasurement = _dataService.GetLastWeightForAnimal(animalId);
+        var lastMeasurement = _weightMeasurementRepository.GetLastWeightForAnimal(animalId);
         if (lastMeasurement is null)
         {
             return NotFound();

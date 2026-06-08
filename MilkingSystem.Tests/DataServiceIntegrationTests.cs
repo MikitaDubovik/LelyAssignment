@@ -1,32 +1,36 @@
-using MilkingSystem.Core.Services;
+using MilkingSystem.Core.Repositories;
 using Xunit;
 
 namespace MilkingSystem.Tests;
 
 /// <summary>
-/// Integration tests for DataService.
-/// 
-/// NOTE: These tests require a running database. 
+/// Integration tests for the repository layer.
+///
+/// NOTE: These tests require a running database.
 /// Run 'docker-compose up' before executing these tests.
-/// 
+///
 /// WARNING: There may be issues with test isolation in this class.
 /// </summary>
 public class DataServiceIntegrationTests : IClassFixture<DatabaseFixture>
 {
     private readonly DatabaseFixture _fixture;
-    private readonly DataService _dataService;
+    private readonly IAnimalRepository _animalRepository;
+    private readonly IRobotRepository _robotRepository;
+    private readonly IMilkingEventRepository _milkingEventRepository;
 
     public DataServiceIntegrationTests(DatabaseFixture fixture)
     {
         _fixture = fixture;
-        _dataService = new DataService(_fixture.ConnectionString);
+        _animalRepository = new AnimalRepository(_fixture.ConnectionString);
+        _robotRepository = new RobotRepository(_fixture.ConnectionString);
+        _milkingEventRepository = new MilkingEventRepository(_fixture.ConnectionString);
     }
 
     [Fact]
     public void GetAllAnimals_ReturnsAnimals()
     {
         // Act
-        var animals = _dataService.GetAllAnimals();
+        var animals = _animalRepository.GetAllAnimals();
 
         // Assert
         Assert.NotNull(animals);
@@ -37,11 +41,11 @@ public class DataServiceIntegrationTests : IClassFixture<DatabaseFixture>
     public void GetAnimalById_WithValidId_ReturnsAnimal()
     {
         // Arrange
-        var animals = _dataService.GetAllAnimals();
+        var animals = _animalRepository.GetAllAnimals();
         var firstAnimal = animals.First();
 
         // Act
-        var animal = _dataService.GetAnimalById(firstAnimal.Id);
+        var animal = _animalRepository.GetAnimalById(firstAnimal.Id);
 
         // Assert
         Assert.NotNull(animal);
@@ -52,7 +56,7 @@ public class DataServiceIntegrationTests : IClassFixture<DatabaseFixture>
     public void GetAnimalById_WithInvalidId_ReturnsNull()
     {
         // Act
-        var animal = _dataService.GetAnimalById(99999);
+        var animal = _animalRepository.GetAnimalById(99999);
 
         // Assert
         Assert.Null(animal);
@@ -65,12 +69,12 @@ public class DataServiceIntegrationTests : IClassFixture<DatabaseFixture>
         var identificationNumber = $"TEST-{TestDataHelper.GetNextAnimalId()}";
 
         // Act
-        var id = _dataService.CreateAnimal(identificationNumber, "Test Animal", DateTime.Now.AddYears(-2));
+        var id = _animalRepository.CreateAnimal(identificationNumber, "Test Animal", DateTime.Now.AddYears(-2));
 
         // Assert
         Assert.True(id > 0);
-        
-        var animal = _dataService.GetAnimalById(id);
+
+        var animal = _animalRepository.GetAnimalById(id);
         Assert.NotNull(animal);
         Assert.Equal(identificationNumber, animal!.IdentificationNumber);
     }
@@ -79,13 +83,13 @@ public class DataServiceIntegrationTests : IClassFixture<DatabaseFixture>
     public void SaveMilkingEvent_SavesEvent()
     {
         // Arrange
-        var animals = _dataService.GetAllAnimals();
+        var animals = _animalRepository.GetAllAnimals();
         var animal = animals.First();
-        var robots = _dataService.GetAllRobots();
+        var robots = _robotRepository.GetAllRobots();
         var robot = robots.First();
 
         // Act
-        var id = _dataService.SaveMilkingEvent(
+        var id = _milkingEventRepository.SaveMilkingEvent(
             animal.Id,
             robot.Id,
             DateTime.UtcNow,
@@ -102,13 +106,13 @@ public class DataServiceIntegrationTests : IClassFixture<DatabaseFixture>
     {
         // Arrange - This test depends on SaveMilkingEvent_SavesEvent having run first
         // and may fail if run in isolation or in different order
-        var animals = _dataService.GetAllAnimals();
+        var animals = _animalRepository.GetAllAnimals();
         var animal = animals.First();
 
         // Act
-        var events = _dataService.GetMilkingEventsForAnimal(animal.Id);
+        var events = _milkingEventRepository.GetMilkingEventsForAnimal(animal.Id);
 
-        // Assert  
+        // Assert
         Assert.NotNull(events);
         // This assertion is FLAKY - it assumes previous test data exists
         Assert.True(events.Count > 0, "Expected milking events for animal");

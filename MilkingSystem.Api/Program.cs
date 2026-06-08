@@ -2,6 +2,7 @@ using Autofac;
 using Autofac.Extensions.DependencyInjection;
 using MilkingSystem.Core.Configuration;
 using MilkingSystem.Core.Notifications;
+using MilkingSystem.Core.Repositories;
 using MilkingSystem.Core.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,10 +16,23 @@ builder.Services.Configure<MilkingSettings>(
 builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory());
 builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
 {
-    // Register DataService
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-    containerBuilder.Register(c => new DataService(connectionString!))
-        .AsSelf()
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
+
+    containerBuilder.Register(_ => new AnimalRepository(connectionString))
+        .As<IAnimalRepository>()
+        .SingleInstance();
+
+    containerBuilder.Register(_ => new RobotRepository(connectionString))
+        .As<IRobotRepository>()
+        .SingleInstance();
+
+    // SingleInstance so the per-animal SemaphoreSlim dictionary is shared across all requests.
+    containerBuilder.Register(_ => new MilkingEventRepository(connectionString))
+        .As<IMilkingEventRepository>()
+        .SingleInstance();
+
+    containerBuilder.Register(_ => new WeightMeasurementRepository(connectionString))
+        .As<IWeightMeasurementRepository>()
         .SingleInstance();
 
     containerBuilder.RegisterType<InMemoryRobotNotifier>()

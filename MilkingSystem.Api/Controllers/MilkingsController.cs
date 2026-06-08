@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MilkingSystem.Api.Models;
+using MilkingSystem.Core.Repositories;
 using MilkingSystem.Core.Results;
 using MilkingSystem.Core.Services;
 
@@ -9,13 +10,13 @@ namespace MilkingSystem.Api.Controllers;
 /// Controller for milking events.
 ///
 /// TODO: Candidates should implement POST endpoint for recording new milking events.
-/// 
+///
 /// Background:
 /// - Robots are large stationary machines in the barn
 /// - A cow walks into a robot and gets milked autonomously
 /// - After milking, a cow might walk to another robot hoping for more food
 /// - Other robots must know NOT to milk this cow (she was recently milked)
-/// 
+///
 /// Requirements:
 /// - Accept milking data from robots (animalId, robotId, milkYieldLiters, duration)
 /// - Prevent double-milking: if an animal was milked within the last 6 hours, reject the request
@@ -24,21 +25,21 @@ namespace MilkingSystem.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public class MilkingsController(DataService dataService, IMilkingService milkingService) : ControllerBase
+public class MilkingsController(IMilkingEventRepository milkingEventRepository, IMilkingService milkingService) : ControllerBase
 {
-    private readonly DataService _dataService = dataService;
+    private readonly IMilkingEventRepository _milkingEventRepository = milkingEventRepository;
     private readonly IMilkingService _milkingService = milkingService;
 
     [HttpGet("animal/{animalId}")]
     public IActionResult GetForAnimal(int animalId)
     {
-        return Ok(_dataService.GetMilkingEventsForAnimal(animalId));
+        return Ok(_milkingEventRepository.GetMilkingEventsForAnimal(animalId));
     }
 
     [HttpGet("animal/{animalId}/last")]
     public IActionResult GetLastForAnimal(int animalId)
     {
-        var lastEvent = _dataService.GetLastMilkingForAnimal(animalId);
+        var lastEvent = _milkingEventRepository.GetLastMilkingForAnimal(animalId);
         if (lastEvent is null)
         {
             return NotFound();
@@ -49,7 +50,7 @@ public class MilkingsController(DataService dataService, IMilkingService milking
     [HttpGet("recent")]
     public IActionResult GetRecent([FromQuery] int hours = 24)
     {
-        return Ok(_dataService.GetRecentMilkingEvents(hours));
+        return Ok(_milkingEventRepository.GetRecentMilkingEvents(hours));
     }
 
     [HttpPost]

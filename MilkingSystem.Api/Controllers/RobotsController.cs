@@ -1,24 +1,24 @@
 using Microsoft.AspNetCore.Mvc;
-using MilkingSystem.Core.Services;
+using MilkingSystem.Core.Repositories;
 
 namespace MilkingSystem.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class RobotsController(DataService dataService) : ControllerBase
+public class RobotsController(IRobotRepository robotRepository) : ControllerBase
 {
-    private readonly DataService _dataService = dataService;
+    private readonly IRobotRepository _robotRepository = robotRepository;
 
     [HttpGet]
     public IActionResult Get()
     {
-        return Ok(_dataService.GetAllRobots());
+        return Ok(_robotRepository.GetAllRobots());
     }
 
     [HttpGet("{id}")]
     public IActionResult Get(int id)
     {
-        var robot = _dataService.GetRobotById(id);
+        var robot = _robotRepository.GetRobotById(id);
         if (robot is null)
         {
             return NotFound();
@@ -29,6 +29,6 @@ public class RobotsController(DataService dataService) : ControllerBase
     [HttpGet("active")]
     public IActionResult GetActive()
     {
-        return Ok(_dataService.GetActiveRobots());
+        return Ok(_robotRepository.GetActiveRobots());
     }
 }
