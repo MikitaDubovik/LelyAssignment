@@ -66,9 +66,18 @@ public class MilkingService(
         var effectiveTimestamp = timestamp?.ToUniversalTime() ?? DateTime.UtcNow;
 
         // Fast pre-check using in-memory state - avoids lock acquisition for the common case.
+        // On a hit we still fetch the last event from the DB so the caller gets the exact timestamps.
         if (await _notifier.WasRecentlyMilked(animalId, _protectionWindowHours))
         {
-            return new MilkingServiceResult { Status = MilkingServiceStatus.RecentlyMilked };
+            //TODO Not necessary if we OK with returning NULLs for LastMilkedAt and NextAllowedAt or just don't want to return them at all
+            //Not doing this will save some time
+            var lastMilking = await _milkingEventRepository.GetLastMilkingForAnimal(animalId);
+            return new MilkingServiceResult
+            {
+                Status = MilkingServiceStatus.RecentlyMilked,
+                LastMilkedAt = lastMilking?.Timestamp,
+                NextAllowedAt = lastMilking?.Timestamp.AddHours(_protectionWindowHours)
+            };
         }
 
         // Per-animal lock: different animals are processed in parallel;
