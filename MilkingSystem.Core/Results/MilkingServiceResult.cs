@@ -1,7 +1,7 @@
 namespace MilkingSystem.Core.Results;
 
 /// <summary>
-/// Result returned by <see cref="MilkingSystem.Core.Services.IMilkingService.RecordMilking"/>.
+/// Result returned by <see cref="Services.IMilkingService.RecordMilking"/>.
 /// On <see cref="MilkingServiceStatus.RecentlyMilked"/>, <see cref="LastMilkedAt"/>
 /// and <see cref="NextAllowedAt"/> are populated so the caller can surface them to the client.
 /// </summary>
