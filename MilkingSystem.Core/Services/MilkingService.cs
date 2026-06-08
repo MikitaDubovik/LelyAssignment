@@ -1,11 +1,15 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
 using MilkingSystem.Core.Configuration;
+using MilkingSystem.Core.Models;
 using MilkingSystem.Core.Notifications;
 using MilkingSystem.Core.Repositories;
 using MilkingSystem.Core.Results;
 
 namespace MilkingSystem.Core.Services;
 
+// Registered as SingleInstance because it owns the per-animal SemaphoreSlim dictionary
+// that must be shared across all concurrent requests. All dependencies are SingleInstance.
 public class MilkingService(
     IAnimalRepository animalRepository,
     IRobotRepository robotRepository,
@@ -18,6 +22,22 @@ public class MilkingService(
     private readonly IMilkingEventRepository _milkingEventRepository = milkingEventRepository;
     private readonly IRobotNotifier _notifier = notifier;
     private readonly int _protectionWindowHours = settings.Value.ProtectionWindowHours;
+
+    // Double-milking prevention is a business rule, so the lock that enforces it
+    // belongs here rather than in the repository layer.
+    private readonly ConcurrentDictionary<int, SemaphoreSlim> _animalLocks = new();
+
+    private SemaphoreSlim GetAnimalLock(int animalId)
+        => _animalLocks.GetOrAdd(animalId, _ => new SemaphoreSlim(1, 1));
+
+    public List<MilkingEvent> GetMilkingEventsForAnimal(int animalId)
+        => _milkingEventRepository.GetMilkingEventsForAnimal(animalId);
+
+    public MilkingEvent? GetLastMilkingForAnimal(int animalId)
+        => _milkingEventRepository.GetLastMilkingForAnimal(animalId);
+
+    public List<MilkingEvent> GetRecentMilkingEvents(int hours = 24)
+        => _milkingEventRepository.GetRecentMilkingEvents(hours);
 
     public async Task<MilkingServiceResult> RecordMilking(
         int animalId, int robotId, decimal milkYieldLiters, int? duration, DateTime? timestamp)
@@ -53,7 +73,7 @@ public class MilkingService(
 
         // Per-animal lock: different animals are processed in parallel;
         // the same animal is serialised so the authoritative check-then-save is atomic.
-        var animalLock = _milkingEventRepository.GetAnimalMilkingLock(animalId);
+        var animalLock = GetAnimalLock(animalId);
         await animalLock.WaitAsync();
         try
         {

@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Microsoft.Data.SqlClient;
 using MilkingSystem.Core.Models;
 
@@ -7,10 +6,6 @@ namespace MilkingSystem.Core.Repositories;
 public class MilkingEventRepository(string connectionString) : IMilkingEventRepository
 {
     private readonly string _connectionString = connectionString;
-    private readonly ConcurrentDictionary<int, SemaphoreSlim> _animalMilkingLocks = new();
-
-    public SemaphoreSlim GetAnimalMilkingLock(int animalId)
-        => _animalMilkingLocks.GetOrAdd(animalId, _ => new SemaphoreSlim(1, 1));
 
     public List<MilkingEvent> GetMilkingEventsForAnimal(int animalId)
     {

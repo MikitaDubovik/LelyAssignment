@@ -21,10 +21,4 @@ public interface IMilkingEventRepository
 
     /// <summary>Returns the average milk yield in litres for the given animal across all recorded events.</summary>
     double GetAverageMilkYield(int animalId);
-
-    /// <summary>
-    /// Returns a per-animal semaphore used to serialise the check-then-save operation
-    /// for a single animal while allowing concurrent operations on different animals.
-    /// </summary>
-    SemaphoreSlim GetAnimalMilkingLock(int animalId);
 }

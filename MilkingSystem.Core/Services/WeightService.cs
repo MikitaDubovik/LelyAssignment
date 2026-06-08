@@ -1,3 +1,4 @@
+using MilkingSystem.Core.Models;
 using MilkingSystem.Core.Repositories;
 using MilkingSystem.Core.Results;
 
@@ -11,6 +12,12 @@ public class WeightService(
     private readonly IAnimalRepository _animalRepository = animalRepository;
     private readonly IRobotRepository _robotRepository = robotRepository;
     private readonly IWeightMeasurementRepository _weightMeasurementRepository = weightMeasurementRepository;
+
+    public List<WeightMeasurement> GetWeightMeasurementsForAnimal(int animalId)
+        => _weightMeasurementRepository.GetWeightMeasurementsForAnimal(animalId);
+
+    public WeightMeasurement? GetLastWeightForAnimal(int animalId)
+        => _weightMeasurementRepository.GetLastWeightForAnimal(animalId);
 
     public WeightServiceResult RecordWeight(int animalId, int robotId, decimal weightKg, DateTime? timestamp)
     {

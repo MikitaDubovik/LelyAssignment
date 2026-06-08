@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using MilkingSystem.Api.Models;
-using MilkingSystem.Core.Repositories;
 using MilkingSystem.Core.Results;
 using MilkingSystem.Core.Services;
 
@@ -25,21 +24,20 @@ namespace MilkingSystem.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public class MilkingsController(IMilkingEventRepository milkingEventRepository, IMilkingService milkingService) : ControllerBase
+public class MilkingsController(IMilkingService milkingService) : ControllerBase
 {
-    private readonly IMilkingEventRepository _milkingEventRepository = milkingEventRepository;
     private readonly IMilkingService _milkingService = milkingService;
 
     [HttpGet("animal/{animalId}")]
     public IActionResult GetForAnimal(int animalId)
     {
-        return Ok(_milkingEventRepository.GetMilkingEventsForAnimal(animalId));
+        return Ok(_milkingService.GetMilkingEventsForAnimal(animalId));
     }
 
     [HttpGet("animal/{animalId}/last")]
     public IActionResult GetLastForAnimal(int animalId)
     {
-        var lastEvent = _milkingEventRepository.GetLastMilkingForAnimal(animalId);
+        var lastEvent = _milkingService.GetLastMilkingForAnimal(animalId);
         if (lastEvent is null)
         {
             return NotFound();
@@ -50,7 +48,7 @@ public class MilkingsController(IMilkingEventRepository milkingEventRepository, 
     [HttpGet("recent")]
     public IActionResult GetRecent([FromQuery] int hours = 24)
     {
-        return Ok(_milkingEventRepository.GetRecentMilkingEvents(hours));
+        return Ok(_milkingService.GetRecentMilkingEvents(hours));
     }
 
     [HttpPost]

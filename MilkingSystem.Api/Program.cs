@@ -18,6 +18,7 @@ builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
 
+    // Repositories - SingleInstance since each is stateless and opens a fresh connection per call
     containerBuilder.Register(_ => new AnimalRepository(connectionString))
         .As<IAnimalRepository>()
         .SingleInstance();
@@ -26,7 +27,6 @@ builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
         .As<IRobotRepository>()
         .SingleInstance();
 
-    // SingleInstance so the per-animal SemaphoreSlim dictionary is shared across all requests.
     containerBuilder.Register(_ => new MilkingEventRepository(connectionString))
         .As<IMilkingEventRepository>()
         .SingleInstance();
@@ -39,12 +39,22 @@ builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
         .As<IRobotNotifier>()
         .SingleInstance();
 
+    // MilkingService is SingleInstance because it owns the per-animal SemaphoreSlim dictionary
+    // that must be shared across all concurrent requests.
     containerBuilder.RegisterType<MilkingService>()
         .As<IMilkingService>()
-        .InstancePerLifetimeScope();
+        .SingleInstance();
 
     containerBuilder.RegisterType<WeightService>()
         .As<IWeightService>()
+        .InstancePerLifetimeScope();
+
+    containerBuilder.RegisterType<AnimalService>()
+        .As<IAnimalService>()
+        .InstancePerLifetimeScope();
+
+    containerBuilder.RegisterType<RobotService>()
+        .As<IRobotService>()
         .InstancePerLifetimeScope();
 });
 

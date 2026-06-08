@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using MilkingSystem.Api.Models;
-using MilkingSystem.Core.Repositories;
 using MilkingSystem.Core.Results;
 using MilkingSystem.Core.Services;
 
@@ -18,21 +17,20 @@ namespace MilkingSystem.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public class WeightsController(IWeightMeasurementRepository weightMeasurementRepository, IWeightService weightService) : ControllerBase
+public class WeightsController(IWeightService weightService) : ControllerBase
 {
-    private readonly IWeightMeasurementRepository _weightMeasurementRepository = weightMeasurementRepository;
     private readonly IWeightService _weightService = weightService;
 
     [HttpGet("animal/{animalId}")]
     public IActionResult GetForAnimal(int animalId)
     {
-        return Ok(_weightMeasurementRepository.GetWeightMeasurementsForAnimal(animalId));
+        return Ok(_weightService.GetWeightMeasurementsForAnimal(animalId));
     }
 
     [HttpGet("animal/{animalId}/last")]
     public IActionResult GetLastForAnimal(int animalId)
     {
-        var lastMeasurement = _weightMeasurementRepository.GetLastWeightForAnimal(animalId);
+        var lastMeasurement = _weightService.GetLastWeightForAnimal(animalId);
         if (lastMeasurement is null)
         {
             return NotFound();
