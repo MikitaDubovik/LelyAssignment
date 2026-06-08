@@ -1,0 +1,10 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="MilkingSystem.Api/MilkingSystem.Api.csproj" />
+  <Project Path="MilkingSystem.Core/MilkingSystem.Core.csproj" />
+  <Project Path="MilkingSystem.Tests/MilkingSystem.Tests.csproj" />
+</Solution>
