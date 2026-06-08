@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using MilkingSystem.Api.Models;
 using MilkingSystem.Core.Services;
 
 namespace MilkingSystem.Api.Controllers;
@@ -44,11 +45,4 @@ public class AnimalsController(DataService dataService) : ControllerBase
         var id = _dataService.CreateAnimal(request.IdentificationNumber, request.Name, request.BirthDate);
         return Ok(new { id });
     }
-}
-
-public class CreateAnimalRequest
-{
-    public string IdentificationNumber { get; set; } = string.Empty;
-    public string? Name { get; set; }
-    public DateTime? BirthDate { get; set; }
 }
