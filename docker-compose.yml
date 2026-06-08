@@ -1,0 +1,52 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: milking-system-db
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=MilkingSystem123!
+      - MSSQL_PID=Express
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "MilkingSystem123!" -C -Q "SELECT 1" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "MilkingSystem123!" -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 40s
+
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: milking-system-db-init
+    environment:
+      - ACCEPT_EULA=Y
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        echo 'Waiting for SQL Server...'
+        sleep 10
+        for i in 1 2 3 4 5 6 7 8 9 10; do
+          /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P 'MilkingSystem123!' -C -Q 'SELECT 1' && break || sleep 5
+        done
+        echo 'Creating database...'
+        /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P 'MilkingSystem123!' -C -Q "IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'MilkingSystem') CREATE DATABASE MilkingSystem"
+        echo 'Database created!'
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  flyway:
+    image: flyway/flyway:10
+    container_name: milking-system-flyway
+    command: -url="jdbc:sqlserver://sqlserver:1433;databaseName=MilkingSystem;encrypt=true;trustServerCertificate=true" -user=sa -password=MilkingSystem123! -connectRetries=60 migrate
+    volumes:
+      - ./db/migrations:/flyway/sql
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+
+volumes:
+  sqlserver-data:
