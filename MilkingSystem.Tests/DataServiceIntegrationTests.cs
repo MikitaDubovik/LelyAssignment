@@ -1,5 +1,4 @@
 using MilkingSystem.Core.Repositories;
-using Xunit;
 
 namespace MilkingSystem.Tests;
 
@@ -7,27 +6,18 @@ namespace MilkingSystem.Tests;
 /// Integration tests for the repository layer.
 ///
 /// NOTE: These tests require a running database.
-/// Run 'docker-compose up' before executing these tests.
-///
-/// WARNING: There may be issues with test isolation in this class.
+/// Run 'docker compose up -d' and wait ~30 s before executing.
 /// </summary>
-public class DataServiceIntegrationTests : IClassFixture<DatabaseFixture>
+public class DataServiceIntegrationTests(DatabaseFixture fixture) : IClassFixture<DatabaseFixture>
 {
-    private readonly DatabaseFixture _fixture;
-    private readonly IAnimalRepository _animalRepository;
-    private readonly IRobotRepository _robotRepository;
-    private readonly IMilkingEventRepository _milkingEventRepository;
+    private readonly IAnimalRepository _animalRepository = new AnimalRepository(fixture.ConnectionString);
+    private readonly IRobotRepository _robotRepository = new RobotRepository(fixture.ConnectionString);
+    private readonly IMilkingEventRepository _milkingEventRepository = new MilkingEventRepository(fixture.ConnectionString);
 
-    public DataServiceIntegrationTests(DatabaseFixture fixture)
-    {
-        _fixture = fixture;
-        _animalRepository = new AnimalRepository(_fixture.ConnectionString);
-        _robotRepository = new RobotRepository(_fixture.ConnectionString);
-        _milkingEventRepository = new MilkingEventRepository(_fixture.ConnectionString);
-    }
+
 
     [Fact]
-    public async Task GetAllAnimals_ReturnsAnimals()
+    public async Task GetAllAnimals_ReturnsSeededAnimals()
     {
         // Act
         var animals = await _animalRepository.GetAllAnimals();
@@ -56,20 +46,20 @@ public class DataServiceIntegrationTests : IClassFixture<DatabaseFixture>
     public async Task GetAnimalById_WithInvalidId_ReturnsNull()
     {
         // Act
-        var animal = await _animalRepository.GetAnimalById(99999);
+        var animal = await _animalRepository.GetAnimalById(-1);
 
         // Assert
         Assert.Null(animal);
     }
 
     [Fact]
-    public async Task CreateAnimal_CreatesNewAnimal()
+    public async Task CreateAnimal_PersistsAndCanBeRetrievedById()
     {
-        // Arrange - using static counter that persists across test runs
-        var identificationNumber = $"TEST-{TestDataHelper.GetNextAnimalId()}";
+        // Arrange — Guid-based ID avoids collisions across repeated test runs
+        var identificationNumber = DatabaseFixture.UniqueId();
 
         // Act
-        var id = await _animalRepository.CreateAnimal(identificationNumber, "Test Animal", DateTime.Now.AddYears(-2));
+        var id = await _animalRepository.CreateAnimal(identificationNumber, "Test Animal", DateTime.UtcNow.AddYears(-2));
 
         // Assert
         Assert.True(id > 0);
@@ -80,61 +70,36 @@ public class DataServiceIntegrationTests : IClassFixture<DatabaseFixture>
     }
 
     [Fact]
-    public async Task SaveMilkingEvent_SavesEvent()
+    public async Task SaveMilkingEvent_PersistsAndReturnsGeneratedId()
     {
-        // Arrange
-        var animals = await _animalRepository.GetAllAnimals();
-        var animal = animals.First();
+        // Arrange — create a fresh animal so this test is fully self-contained
+        var animalId = await _animalRepository.CreateAnimal(DatabaseFixture.UniqueId(), null, null);
         var robots = await _robotRepository.GetAllRobots();
         var robot = robots.First();
 
         // Act
         var id = await _milkingEventRepository.SaveMilkingEvent(
-            animal.Id,
-            robot.Id,
-            DateTime.UtcNow,
-            25.5m,
-            360
-        );
+            animalId, robot.Id, DateTime.UtcNow, 25.5m, 360);
 
         // Assert
         Assert.True(id > 0);
     }
 
     [Fact]
-    public async Task GetMilkingEventsForAnimal_ReturnsEvents()
+    public async Task GetMilkingEventsForAnimal_ReturnsSavedEvents()
     {
-        // Arrange - This test depends on SaveMilkingEvent_SavesEvent having run first
-        // and may fail if run in isolation or in different order
-        var animals = await _animalRepository.GetAllAnimals();
-        var animal = animals.First();
+        // Arrange — create animal and event so this test does not depend on other tests
+        var animalId = await _animalRepository.CreateAnimal(DatabaseFixture.UniqueId(), null, null);
+        var robots = await _robotRepository.GetAllRobots();
+        await _milkingEventRepository.SaveMilkingEvent(
+            animalId, robots.First().Id, DateTime.UtcNow, 22.0m, null);
 
         // Act
-        var events = await _milkingEventRepository.GetMilkingEventsForAnimal(animal.Id);
+        var events = await _milkingEventRepository.GetMilkingEventsForAnimal(animalId);
 
         // Assert
         Assert.NotNull(events);
-        // This assertion is FLAKY - it assumes previous test data exists
-        Assert.True(events.Count > 0, "Expected milking events for animal");
-    }
-}
-
-/// <summary>
-/// Shared test data helper - WARNING: Uses static state!
-/// </summary>
-public static class TestDataHelper
-{
-    // Static counter - this causes test pollution between test runs
-    private static int _animalCounter = 1000;
-
-    public static int GetNextAnimalId()
-    {
-        return _animalCounter++;
-    }
-
-    // This doesn't get reset between test classes or test runs!
-    public static void Reset()
-    {
-        _animalCounter = 1000;
+        Assert.Single(events);
+        Assert.Equal(22.0m, events[0].MilkYieldLiters);
     }
 }

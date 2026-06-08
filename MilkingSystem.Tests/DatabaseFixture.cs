@@ -1,22 +1,18 @@
 namespace MilkingSystem.Tests;
 
 /// <summary>
-/// Fixture that provides database connection for integration tests.
+/// Shared fixture that provides database connection for integration tests.
 /// </summary>
 public class DatabaseFixture : IDisposable
 {
-    public string ConnectionString { get; }
+    public string ConnectionString { get; } =
+        "Server=localhost,1433;Database=MilkingSystem;User Id=sa;Password=MilkingSystem123!;TrustServerCertificate=True";
 
-    public DatabaseFixture()
-    {
-        // Use the same connection string as the API
-        ConnectionString = "Server=localhost,1433;Database=MilkingSystem;User Id=sa;Password=MilkingSystem123!;TrustServerCertificate=True";
-    }
+    /// <summary>
+    /// Generates a unique animal identification number that is safe to use across
+    /// repeated test runs without colliding on the unique constraint.
+    /// </summary>
+    public static string UniqueId() => $"TEST-{Guid.NewGuid().ToString("N")[..8]}";
 
-    public void Dispose()
-    {
-        // NOTE: No cleanup is performed here!
-        // This is intentional - the flaky test relies on this.
-        // Proper cleanup would involve rolling back transactions or deleting test data.
-    }
+    public void Dispose() { }
 }

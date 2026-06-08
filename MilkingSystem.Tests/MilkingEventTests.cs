@@ -1,72 +1,86 @@
 using MilkingSystem.Core.Repositories;
-using Xunit;
 
 namespace MilkingSystem.Tests;
 
 /// <summary>
-/// Additional integration tests that demonstrate the test isolation problem.
-/// These tests share database state with DataServiceIntegrationTests.
+/// Integration tests for milking-event specific repository behaviour.
+///
+/// NOTE: These tests require a running database.
+/// Run 'docker compose up -d' and wait ~30 s before executing.
 /// </summary>
-public class MilkingEventTests : IClassFixture<DatabaseFixture>
+public class MilkingEventTests(DatabaseFixture fixture) : IClassFixture<DatabaseFixture>
 {
-    private readonly DatabaseFixture _fixture;
-    private readonly IAnimalRepository _animalRepository;
-    private readonly IMilkingEventRepository _milkingEventRepository;
+    private readonly IAnimalRepository _animalRepository = new AnimalRepository(fixture.ConnectionString);
+    private readonly IMilkingEventRepository _milkingEventRepository = new MilkingEventRepository(fixture.ConnectionString);
 
-    public MilkingEventTests(DatabaseFixture fixture)
-    {
-        _fixture = fixture;
-        _animalRepository = new AnimalRepository(_fixture.ConnectionString);
-        _milkingEventRepository = new MilkingEventRepository(_fixture.ConnectionString);
-    }
 
     [Fact]
-    public async Task GetRecentMilkingEvents_WithNoRecentEvents_ReturnsEmptyList()
+    public async Task CreateAnimal_WithDuplicateIdentificationNumber_Throws()
     {
-        // This test is FLAKY because it assumes no milking events in the last hour
-        // But other tests may have inserted events that affect this result
+        // Arrange - share the same number for both inserts
+        var identificationNumber = DatabaseFixture.UniqueId();
+        await _animalRepository.CreateAnimal(identificationNumber, "First", null);
 
-        // Act
-        var events = await _milkingEventRepository.GetRecentMilkingEvents(hours: 1);
-
-        // Assert
-        // This might pass or fail depending on when other tests ran
-        // and whether they inserted events within the last hour
-
-        // INTENTIONALLY FLAKY: Sometimes there will be recent events, sometimes not
-        // depending on test execution order and timing
-        Assert.NotNull(events);
-    }
-
-    [Fact]
-    public async Task CreateAnimal_WithDuplicateIdentificationNumber_ShouldFail()
-    {
-        // Arrange - uses same static counter as other tests
-        var identificationNumber = $"TEST-{TestDataHelper.GetNextAnimalId()}";
-
-        // First creation should succeed
-        var firstId = await _animalRepository.CreateAnimal(identificationNumber, "First Animal", null);
-        Assert.True(firstId > 0);
-
-        // Second creation with same ID should throw
-        // Note: This creates test data pollution
+        // Act & Assert
         await Assert.ThrowsAnyAsync<Exception>(() =>
-            _animalRepository.CreateAnimal(identificationNumber, "Second Animal", null));
+            _animalRepository.CreateAnimal(identificationNumber, "Duplicate", null));
     }
 
     [Fact]
     public async Task GetLastMilkingForAnimal_WhenNoMilkings_ReturnsNull()
     {
-        // Arrange - create a brand new animal that has no milkings
-        var identificationNumber = $"NOMILK-{TestDataHelper.GetNextAnimalId()}";
-        var animalId = await _animalRepository.CreateAnimal(identificationNumber, "No Milking Animal", null);
+        // Arrange - brand-new animal with no history
+        var animalId = await _animalRepository.CreateAnimal(DatabaseFixture.UniqueId(), null, null);
 
         // Act
-        var lastMilking = await _milkingEventRepository.GetLastMilkingForAnimal(animalId);
+        var last = await _milkingEventRepository.GetLastMilkingForAnimal(animalId);
 
         // Assert
-        Assert.Null(lastMilking);
+        Assert.Null(last);
+    }
 
-        // NOTE: This animal is left in the database after the test!
+    [Fact]
+    public async Task GetLastMilkingForAnimal_AfterSavingEvent_ReturnsIt()
+    {
+        // Arrange
+        var animalId = await _animalRepository.CreateAnimal(DatabaseFixture.UniqueId(), null, null);
+        var savedId = await _milkingEventRepository.SaveMilkingEvent(animalId, 1, DateTime.UtcNow, 19.5m, null);
+
+        // Act
+        var last = await _milkingEventRepository.GetLastMilkingForAnimal(animalId);
+
+        // Assert
+        Assert.NotNull(last);
+        Assert.Equal(savedId, last!.Id);
+        Assert.Equal(19.5m, last.MilkYieldLiters);
+    }
+
+    [Fact]
+    public async Task GetRecentMilkingEvents_EventSavedNow_AppearsInResults()
+    {
+        // Arrange
+        var animalId = await _animalRepository.CreateAnimal(DatabaseFixture.UniqueId(), null, null);
+        await _milkingEventRepository.SaveMilkingEvent(animalId, 1, DateTime.UtcNow, 21.0m, null);
+
+        // Act
+        var recent = await _milkingEventRepository.GetRecentMilkingEvents(hours: 1);
+
+        // Assert
+        Assert.Contains(recent, e => e.AnimalId == animalId);
+    }
+
+    [Fact]
+    public async Task GetRecentMilkingEvents_EventSavedTwoHoursAgo_DoesNotAppearInOneHourWindow()
+    {
+        // Arrange
+        var animalId = await _animalRepository.CreateAnimal(DatabaseFixture.UniqueId(), null, null);
+        await _milkingEventRepository.SaveMilkingEvent(
+            animalId, 1, DateTime.UtcNow.AddHours(-2), 21.0m, null);
+
+        // Act
+        var recent = await _milkingEventRepository.GetRecentMilkingEvents(hours: 1);
+
+        // Assert - the old event must not appear in a 1-hour window
+        Assert.DoesNotContain(recent, e => e.AnimalId == animalId);
     }
 }
