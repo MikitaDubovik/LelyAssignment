@@ -48,7 +48,7 @@ public class WeightsController(IWeightService weightService) : ControllerBase
         return result.Status switch
         {
             WeightServiceStatus.WeightIsIncorrect => BadRequest(new { error = "WeightKg must be greater than zero" }),
-            WeightServiceStatus.Success => Ok(new { id = result.MeasurementId }),
+            WeightServiceStatus.Success => CreatedAtAction(nameof(GetForAnimal), new { animalId = request.AnimalId }, new { id = result.MeasurementId }),
             WeightServiceStatus.AnimalNotFound => NotFound(new { error = "Animal not found" }),
             WeightServiceStatus.RobotNotFound => NotFound(new { error = "Robot not found" }),
             WeightServiceStatus.RobotNotActive => UnprocessableEntity(new { error = "Robot is not active" }),

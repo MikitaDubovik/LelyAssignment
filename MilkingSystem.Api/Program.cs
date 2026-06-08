@@ -9,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
+builder.Services.AddProblemDetails();
 builder.Services.Configure<MilkingSettings>(
     builder.Configuration.GetSection(nameof(MilkingSettings)));
 
@@ -73,6 +74,25 @@ notifier.Subscribe(notification =>
         notification.Timestamp));
 
 // Configure the HTTP request pipeline.
+// Must be first so it wraps all downstream middleware.
+app.UseExceptionHandler(exceptionHandlerApp => exceptionHandlerApp.Run(async context =>
+{
+    var exceptionFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+
+    context.RequestServices
+        .GetRequiredService<ILogger<Program>>()
+        .LogError(exceptionFeature?.Error, "Unhandled exception");
+
+    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+    context.Response.ContentType = "application/problem+json";
+
+    await context.Response.WriteAsJsonAsync(new
+    {
+        title = "An unexpected error occurred.",
+        status = StatusCodes.Status500InternalServerError
+    });
+}));
+
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
 using MilkingSystem.Core.Repositories;
 
 namespace MilkingSystem.Core.Notifications;
@@ -19,9 +20,12 @@ public class InMemoryRobotNotifier : IRobotNotifier
 
     private readonly List<Action<MilkingNotification>> _subscribers = [];
     private readonly Lock _subscriberLock = new();
+    private readonly ILogger<InMemoryRobotNotifier> _logger;
 
-    public InMemoryRobotNotifier(IMilkingEventRepository milkingEventRepository)
+    public InMemoryRobotNotifier(IMilkingEventRepository milkingEventRepository, ILogger<InMemoryRobotNotifier> logger)
     {
+        _logger = logger;
+
         //This is discussable. I know that it's not the common approach everywhere
         //Some projects like to have a backend that can work without a DB connection at all
         //But in this test scenario, if we can make a GET to grab necessary data then I would prefer the app to fail on Startup
@@ -75,9 +79,15 @@ public class InMemoryRobotNotifier : IRobotNotifier
             {
                 handler(notification);
             }
-            catch
+            catch (Exception ex)
             {
-                /* one bad subscriber must not break the broadcast */
+                // One bad subscriber must not break the broadcast, but failures must not be silent.
+                _logger.LogError(ex,
+                    "Milking notification subscriber {DeclaringType}.{HandlerMethod} threw an unhandled exception for AnimalId={AnimalId}, RobotId={RobotId}",
+                    handler.Method.DeclaringType?.Name,
+                    handler.Method.Name,
+                    notification.AnimalId,
+                    notification.RobotId);
             }
         }
     }

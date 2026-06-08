@@ -42,6 +42,6 @@ public class AnimalsController(IAnimalService animalService) : ControllerBase
     public IActionResult Create([FromBody] CreateAnimalRequest request)
     {
         var id = _animalService.CreateAnimal(request.IdentificationNumber, request.Name, request.BirthDate);
-        return Ok(new { id });
+        return CreatedAtAction(nameof(Get), new { id }, new { id });
     }
 }

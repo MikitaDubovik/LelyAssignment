@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace MilkingSystem.Api.Models;
 
 /// <summary>
@@ -8,6 +10,7 @@ public class CreateAnimalRequest
     /// <summary>
     /// The unique identification number of the animal (e.g. NL-123456789).
     /// </summary>
+    [Required]
     public string IdentificationNumber { get; set; } = string.Empty;
 
     /// <summary>

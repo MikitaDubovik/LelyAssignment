@@ -62,7 +62,7 @@ public class MilkingsController(IMilkingService milkingService) : ControllerBase
         return result.Status switch
         {
             MilkingServiceStatus.MilkAmountIsIncorrect => BadRequest(new { error = "MilkYieldLiters must be greater than zero" }),
-            MilkingServiceStatus.Success => Ok(new { id = result.EventId }),
+            MilkingServiceStatus.Success => CreatedAtAction(nameof(GetForAnimal), new { animalId = request.AnimalId }, new { id = result.EventId }),
             MilkingServiceStatus.AnimalNotFound => NotFound(new { error = "Animal not found" }),
             MilkingServiceStatus.RobotNotFound => NotFound(new { error = "Robot not found" }),
             MilkingServiceStatus.RobotNotActive => UnprocessableEntity(new { error = "Robot is not active" }),
