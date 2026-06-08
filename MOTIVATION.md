@@ -63,6 +63,8 @@ each now creates its own data with a unique id.
   touching the service.
 - **Move the "recently milked" state out of process** (e.g. Redis) so it survives
   more than one replica behind a load balancer.
+- **Move Repos to a separate project** (e.g. MilkingSystem.Database or MilkingSystem.Dal) so
+it handles the responsibility of working with data instead of keeping it in MilkingSystem.Core
 
 ## Assumptions
 
