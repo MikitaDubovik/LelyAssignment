@@ -48,7 +48,8 @@ public class DataService(string connectionString)
     {
         using var conn = new SqlConnection(_connectionString);
         conn.Open();
-        var cmd = new SqlCommand("SELECT * FROM Animals WHERE Id = " + id, conn); // SQL concatenation
+        var cmd = new SqlCommand("SELECT * FROM Animals WHERE Id = @Id", conn);
+        cmd.Parameters.AddWithValue("@Id", id);
         var reader = cmd.ExecuteReader();
         if (reader.Read())
         {
@@ -69,7 +70,8 @@ public class DataService(string connectionString)
     {
         using var conn = new SqlConnection(_connectionString);
         conn.Open();
-        var cmd = new SqlCommand("SELECT * FROM Animals WHERE IdentificationNumber = '" + identificationNumber + "'", conn);
+        var cmd = new SqlCommand("SELECT * FROM Animals WHERE IdentificationNumber = @IdentificationNumber", conn);
+        cmd.Parameters.AddWithValue("@IdentificationNumber", identificationNumber);
         var reader = cmd.ExecuteReader();
         if (reader.Read())
         {
@@ -183,7 +185,8 @@ public class DataService(string connectionString)
         using (var conn = new SqlConnection(_connectionString))
         {
             conn.Open();
-            var cmd = new SqlCommand("SELECT * FROM MilkingEvents WHERE AnimalId = " + animalId + " ORDER BY Timestamp DESC", conn);
+            var cmd = new SqlCommand("SELECT * FROM MilkingEvents WHERE AnimalId = @AnimalId ORDER BY Timestamp DESC", conn);
+            cmd.Parameters.AddWithValue("@AnimalId", animalId);
             var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
@@ -229,7 +232,8 @@ public class DataService(string connectionString)
         {
             conn.Open();
             var cutoff = DateTime.UtcNow.AddHours(-hours);
-            var cmd = new SqlCommand("SELECT * FROM MilkingEvents WHERE Timestamp > '" + cutoff.ToString("yyyy-MM-dd HH:mm:ss") + "'", conn);
+            var cmd = new SqlCommand("SELECT * FROM MilkingEvents WHERE Timestamp > @Cutoff", conn);
+            cmd.Parameters.AddWithValue("@Cutoff", cutoff);
             var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
@@ -263,7 +267,8 @@ public class DataService(string connectionString)
         using (var conn = new SqlConnection(_connectionString))
         {
             conn.Open();
-            var cmd = new SqlCommand("SELECT * FROM WeightMeasurements WHERE AnimalId = " + animalId, conn);
+            var cmd = new SqlCommand("SELECT * FROM WeightMeasurements WHERE AnimalId = @AnimalId", conn);
+            cmd.Parameters.AddWithValue("@AnimalId", animalId);
             var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
@@ -327,7 +332,9 @@ public class DataService(string connectionString)
         using (var conn = new SqlConnection(_connectionString))
         {
             conn.Open();
-            var cmd = new SqlCommand($"SELECT AnimalId, SUM(MilkYieldLiters) as Total FROM MilkingEvents WHERE Timestamp BETWEEN '{from:yyyy-MM-dd}' AND '{to:yyyy-MM-dd}' GROUP BY AnimalId", conn);
+            var cmd = new SqlCommand("SELECT AnimalId, SUM(MilkYieldLiters) as Total FROM MilkingEvents WHERE Timestamp BETWEEN @From AND @To GROUP BY AnimalId", conn);
+            cmd.Parameters.AddWithValue("@From", from);
+            cmd.Parameters.AddWithValue("@To", to);
             var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
@@ -339,18 +346,14 @@ public class DataService(string connectionString)
 
     public double GetAverageMilkYield(int animalId)
     {
-        try
+        using var conn = new SqlConnection(_connectionString);
+        conn.Open();
+        var cmd = new SqlCommand("SELECT AVG(MilkYieldLiters) FROM MilkingEvents WHERE AnimalId = @AnimalId", conn);
+        cmd.Parameters.AddWithValue("@AnimalId", animalId);
+        var result = cmd.ExecuteScalar();
+        if (result != DBNull.Value)
         {
-            using var conn = new SqlConnection(_connectionString);
-            conn.Open();
-            var cmd = new SqlCommand("SELECT AVG(MilkYieldLiters) FROM MilkingEvents WHERE AnimalId = " + animalId, conn);
-            var result = cmd.ExecuteScalar();
-            if (result != DBNull.Value)
-                return Convert.ToDouble(result);
-        }
-        catch
-        {
-            // Ignore errors
+            return Convert.ToDouble(result);
         }
         return 0;
     }
