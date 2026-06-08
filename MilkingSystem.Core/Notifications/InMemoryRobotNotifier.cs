@@ -36,7 +36,9 @@ public class InMemoryRobotNotifier : IRobotNotifier
     // is correct even if the app was recently restarted.
     private void HydrateFromDatabase(IMilkingEventRepository milkingEventRepository)
     {
-        var recentEvents = milkingEventRepository.GetRecentMilkingEvents(hours: 6);
+        // Constructor cannot await — GetAwaiter().GetResult() is acceptable here because
+        // this runs once at startup, outside the request pipeline, with no deadlock risk.
+        var recentEvents = milkingEventRepository.GetRecentMilkingEvents(hours: 6).GetAwaiter().GetResult();
         foreach (var milkingEvent in recentEvents)
         {
             _recentMilkings.AddOrUpdate(

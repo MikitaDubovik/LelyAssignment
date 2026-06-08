@@ -22,15 +22,15 @@ public class WeightsController(IWeightService weightService) : ControllerBase
     private readonly IWeightService _weightService = weightService;
 
     [HttpGet("animal/{animalId}")]
-    public IActionResult GetForAnimal(int animalId)
+    public async Task<IActionResult> GetForAnimal(int animalId)
     {
-        return Ok(_weightService.GetWeightMeasurementsForAnimal(animalId));
+        return Ok(await _weightService.GetWeightMeasurementsForAnimal(animalId));
     }
 
     [HttpGet("animal/{animalId}/last")]
-    public IActionResult GetLastForAnimal(int animalId)
+    public async Task<IActionResult> GetLastForAnimal(int animalId)
     {
-        var lastMeasurement = _weightService.GetLastWeightForAnimal(animalId);
+        var lastMeasurement = await _weightService.GetLastWeightForAnimal(animalId);
         if (lastMeasurement is null)
         {
             return NotFound();
@@ -39,9 +39,9 @@ public class WeightsController(IWeightService weightService) : ControllerBase
     }
 
     [HttpPost]
-    public IActionResult RecordWeight([FromBody] RecordWeightRequest request)
+    public async Task<IActionResult> RecordWeight([FromBody] RecordWeightRequest request)
     {
-        var result = _weightService.RecordWeight(
+        var result = await _weightService.RecordWeight(
             request.AnimalId, request.RobotId,
             request.WeightKg, request.Timestamp);
 

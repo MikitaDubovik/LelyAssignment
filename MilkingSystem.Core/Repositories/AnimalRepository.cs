@@ -7,15 +7,15 @@ public class AnimalRepository(string connectionString) : IAnimalRepository
 {
     private readonly string _connectionString = connectionString;
 
-    public List<Animal> GetAllAnimals()
+    public async Task<List<Animal>> GetAllAnimals()
     {
         var animals = new List<Animal>();
         using (var conn = new SqlConnection(_connectionString))
         {
-            conn.Open();
+            await conn.OpenAsync();
             var cmd = new SqlCommand("SELECT * FROM Animals", conn);
-            var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
                 animals.Add(MapAnimal(reader));
             }
@@ -23,45 +23,45 @@ public class AnimalRepository(string connectionString) : IAnimalRepository
         return animals;
     }
 
-    public Animal? GetAnimalById(int id)
+    public async Task<Animal?> GetAnimalById(int id)
     {
         using var conn = new SqlConnection(_connectionString);
-        conn.Open();
+        await conn.OpenAsync();
         var cmd = new SqlCommand("SELECT * FROM Animals WHERE Id = @Id", conn);
         cmd.Parameters.AddWithValue("@Id", id);
-        var reader = cmd.ExecuteReader();
-        if (reader.Read())
+        var reader = await cmd.ExecuteReaderAsync();
+        if (await reader.ReadAsync())
         {
             return MapAnimal(reader);
         }
         return null;
     }
 
-    public Animal? GetAnimalByIdentificationNumber(string identificationNumber)
+    public async Task<Animal?> GetAnimalByIdentificationNumber(string identificationNumber)
     {
         using var conn = new SqlConnection(_connectionString);
-        conn.Open();
+        await conn.OpenAsync();
         var cmd = new SqlCommand("SELECT * FROM Animals WHERE IdentificationNumber = @IdentificationNumber", conn);
         cmd.Parameters.AddWithValue("@IdentificationNumber", identificationNumber);
-        var reader = cmd.ExecuteReader();
-        if (reader.Read())
+        var reader = await cmd.ExecuteReaderAsync();
+        if (await reader.ReadAsync())
         {
             return MapAnimal(reader);
         }
         return null;
     }
 
-    public int CreateAnimal(string identificationNumber, string? name, DateTime? birthDate)
+    public async Task<int> CreateAnimal(string identificationNumber, string? name, DateTime? birthDate)
     {
         using var conn = new SqlConnection(_connectionString);
-        conn.Open();
+        await conn.OpenAsync();
         var cmd = new SqlCommand(@"INSERT INTO Animals (IdentificationNumber, Name, BirthDate)
                                        OUTPUT INSERTED.Id
                                        VALUES (@IdentificationNumber, @Name, @BirthDate)", conn);
         cmd.Parameters.AddWithValue("@IdentificationNumber", identificationNumber);
         cmd.Parameters.AddWithValue("@Name", (object?)name ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@BirthDate", (object?)birthDate ?? DBNull.Value);
-        return (int)cmd.ExecuteScalar()!;
+        return (int)(await cmd.ExecuteScalarAsync())!;
     }
 
     private static Animal MapAnimal(SqlDataReader reader)

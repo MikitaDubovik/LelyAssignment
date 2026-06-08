@@ -10,15 +10,15 @@ public class RobotsController(IRobotService robotService) : ControllerBase
     private readonly IRobotService _robotService = robotService;
 
     [HttpGet]
-    public IActionResult Get()
+    public async Task<IActionResult> Get()
     {
-        return Ok(_robotService.GetAllRobots());
+        return Ok(await _robotService.GetAllRobots());
     }
 
     [HttpGet("{id}")]
-    public IActionResult Get(int id)
+    public async Task<IActionResult> Get(int id)
     {
-        var robot = _robotService.GetRobotById(id);
+        var robot = await _robotService.GetRobotById(id);
         if (robot is null)
         {
             return NotFound();
@@ -27,8 +27,8 @@ public class RobotsController(IRobotService robotService) : ControllerBase
     }
 
     [HttpGet("active")]
-    public IActionResult GetActive()
+    public async Task<IActionResult> GetActive()
     {
-        return Ok(_robotService.GetActiveRobots());
+        return Ok(await _robotService.GetActiveRobots());
     }
 }

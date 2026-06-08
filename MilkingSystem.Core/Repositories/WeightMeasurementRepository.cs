@@ -7,16 +7,16 @@ public class WeightMeasurementRepository(string connectionString) : IWeightMeasu
 {
     private readonly string _connectionString = connectionString;
 
-    public List<WeightMeasurement> GetWeightMeasurementsForAnimal(int animalId)
+    public async Task<List<WeightMeasurement>> GetWeightMeasurementsForAnimal(int animalId)
     {
         var measurements = new List<WeightMeasurement>();
         using (var conn = new SqlConnection(_connectionString))
         {
-            conn.Open();
+            await conn.OpenAsync();
             var cmd = new SqlCommand("SELECT * FROM WeightMeasurements WHERE AnimalId = @AnimalId", conn);
             cmd.Parameters.AddWithValue("@AnimalId", animalId);
-            var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
                 measurements.Add(MapWeightMeasurement(reader));
             }
@@ -24,10 +24,10 @@ public class WeightMeasurementRepository(string connectionString) : IWeightMeasu
         return measurements;
     }
 
-    public int SaveWeightMeasurement(int animalId, int robotId, DateTime timestamp, decimal weightKg)
+    public async Task<int> SaveWeightMeasurement(int animalId, int robotId, DateTime timestamp, decimal weightKg)
     {
         using var conn = new SqlConnection(_connectionString);
-        conn.Open();
+        await conn.OpenAsync();
         var cmd = new SqlCommand(@"INSERT INTO WeightMeasurements (AnimalId, RobotId, Timestamp, WeightKg)
                                        OUTPUT INSERTED.Id
                                        VALUES (@AnimalId, @RobotId, @Timestamp, @WeightKg)", conn);
@@ -35,19 +35,19 @@ public class WeightMeasurementRepository(string connectionString) : IWeightMeasu
         cmd.Parameters.AddWithValue("@RobotId", robotId);
         cmd.Parameters.AddWithValue("@Timestamp", timestamp);
         cmd.Parameters.AddWithValue("@WeightKg", weightKg);
-        return (int)cmd.ExecuteScalar()!;
+        return (int)(await cmd.ExecuteScalarAsync())!;
     }
 
-    public WeightMeasurement? GetLastWeightForAnimal(int animalId)
+    public async Task<WeightMeasurement?> GetLastWeightForAnimal(int animalId)
     {
         using var conn = new SqlConnection(_connectionString);
-        conn.Open();
+        await conn.OpenAsync();
         var cmd = new SqlCommand(
             "SELECT TOP 1 * FROM WeightMeasurements WHERE AnimalId = @AnimalId ORDER BY Timestamp DESC",
             conn);
         cmd.Parameters.AddWithValue("@AnimalId", animalId);
-        var reader = cmd.ExecuteReader();
-        if (reader.Read())
+        var reader = await cmd.ExecuteReaderAsync();
+        if (await reader.ReadAsync())
         {
             return MapWeightMeasurement(reader);
         }

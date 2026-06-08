@@ -13,26 +13,26 @@ public class WeightService(
     private readonly IRobotRepository _robotRepository = robotRepository;
     private readonly IWeightMeasurementRepository _weightMeasurementRepository = weightMeasurementRepository;
 
-    public List<WeightMeasurement> GetWeightMeasurementsForAnimal(int animalId)
+    public Task<List<WeightMeasurement>> GetWeightMeasurementsForAnimal(int animalId)
         => _weightMeasurementRepository.GetWeightMeasurementsForAnimal(animalId);
 
-    public WeightMeasurement? GetLastWeightForAnimal(int animalId)
+    public Task<WeightMeasurement?> GetLastWeightForAnimal(int animalId)
         => _weightMeasurementRepository.GetLastWeightForAnimal(animalId);
 
-    public WeightServiceResult RecordWeight(int animalId, int robotId, decimal weightKg, DateTime? timestamp)
+    public async Task<WeightServiceResult> RecordWeight(int animalId, int robotId, decimal weightKg, DateTime? timestamp)
     {
         if (weightKg <= 0)
         {
             return new WeightServiceResult { Status = WeightServiceStatus.WeightIsIncorrect };
         }
 
-        var animal = _animalRepository.GetAnimalById(animalId);
+        var animal = await _animalRepository.GetAnimalById(animalId);
         if (animal is null)
         {
             return new WeightServiceResult { Status = WeightServiceStatus.AnimalNotFound };
         }
 
-        var robot = _robotRepository.GetRobotById(robotId);
+        var robot = await _robotRepository.GetRobotById(robotId);
         if (robot is null)
         {
             return new WeightServiceResult { Status = WeightServiceStatus.RobotNotFound };
@@ -43,7 +43,7 @@ public class WeightService(
         }
 
         var effectiveTimestamp = timestamp?.ToUniversalTime() ?? DateTime.UtcNow;
-        var id = _weightMeasurementRepository.SaveWeightMeasurement(animalId, robotId, effectiveTimestamp, weightKg);
+        var id = await _weightMeasurementRepository.SaveWeightMeasurement(animalId, robotId, effectiveTimestamp, weightKg);
 
         return new WeightServiceResult { Status = WeightServiceStatus.Success, MeasurementId = id };
     }

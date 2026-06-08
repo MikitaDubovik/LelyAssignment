@@ -27,10 +27,10 @@ public class DataServiceIntegrationTests : IClassFixture<DatabaseFixture>
     }
 
     [Fact]
-    public void GetAllAnimals_ReturnsAnimals()
+    public async Task GetAllAnimals_ReturnsAnimals()
     {
         // Act
-        var animals = _animalRepository.GetAllAnimals();
+        var animals = await _animalRepository.GetAllAnimals();
 
         // Assert
         Assert.NotNull(animals);
@@ -38,14 +38,14 @@ public class DataServiceIntegrationTests : IClassFixture<DatabaseFixture>
     }
 
     [Fact]
-    public void GetAnimalById_WithValidId_ReturnsAnimal()
+    public async Task GetAnimalById_WithValidId_ReturnsAnimal()
     {
         // Arrange
-        var animals = _animalRepository.GetAllAnimals();
+        var animals = await _animalRepository.GetAllAnimals();
         var firstAnimal = animals.First();
 
         // Act
-        var animal = _animalRepository.GetAnimalById(firstAnimal.Id);
+        var animal = await _animalRepository.GetAnimalById(firstAnimal.Id);
 
         // Assert
         Assert.NotNull(animal);
@@ -53,43 +53,43 @@ public class DataServiceIntegrationTests : IClassFixture<DatabaseFixture>
     }
 
     [Fact]
-    public void GetAnimalById_WithInvalidId_ReturnsNull()
+    public async Task GetAnimalById_WithInvalidId_ReturnsNull()
     {
         // Act
-        var animal = _animalRepository.GetAnimalById(99999);
+        var animal = await _animalRepository.GetAnimalById(99999);
 
         // Assert
         Assert.Null(animal);
     }
 
     [Fact]
-    public void CreateAnimal_CreatesNewAnimal()
+    public async Task CreateAnimal_CreatesNewAnimal()
     {
         // Arrange - using static counter that persists across test runs
         var identificationNumber = $"TEST-{TestDataHelper.GetNextAnimalId()}";
 
         // Act
-        var id = _animalRepository.CreateAnimal(identificationNumber, "Test Animal", DateTime.Now.AddYears(-2));
+        var id = await _animalRepository.CreateAnimal(identificationNumber, "Test Animal", DateTime.Now.AddYears(-2));
 
         // Assert
         Assert.True(id > 0);
 
-        var animal = _animalRepository.GetAnimalById(id);
+        var animal = await _animalRepository.GetAnimalById(id);
         Assert.NotNull(animal);
         Assert.Equal(identificationNumber, animal!.IdentificationNumber);
     }
 
     [Fact]
-    public void SaveMilkingEvent_SavesEvent()
+    public async Task SaveMilkingEvent_SavesEvent()
     {
         // Arrange
-        var animals = _animalRepository.GetAllAnimals();
+        var animals = await _animalRepository.GetAllAnimals();
         var animal = animals.First();
-        var robots = _robotRepository.GetAllRobots();
+        var robots = await _robotRepository.GetAllRobots();
         var robot = robots.First();
 
         // Act
-        var id = _milkingEventRepository.SaveMilkingEvent(
+        var id = await _milkingEventRepository.SaveMilkingEvent(
             animal.Id,
             robot.Id,
             DateTime.UtcNow,
@@ -102,15 +102,15 @@ public class DataServiceIntegrationTests : IClassFixture<DatabaseFixture>
     }
 
     [Fact]
-    public void GetMilkingEventsForAnimal_ReturnsEvents()
+    public async Task GetMilkingEventsForAnimal_ReturnsEvents()
     {
         // Arrange - This test depends on SaveMilkingEvent_SavesEvent having run first
         // and may fail if run in isolation or in different order
-        var animals = _animalRepository.GetAllAnimals();
+        var animals = await _animalRepository.GetAllAnimals();
         var animal = animals.First();
 
         // Act
-        var events = _milkingEventRepository.GetMilkingEventsForAnimal(animal.Id);
+        var events = await _milkingEventRepository.GetMilkingEventsForAnimal(animal.Id);
 
         // Assert
         Assert.NotNull(events);

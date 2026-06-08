@@ -7,12 +7,12 @@ public class RobotService(IRobotRepository robotRepository) : IRobotService
 {
     private readonly IRobotRepository _robotRepository = robotRepository;
 
-    public List<Robot> GetAllRobots()
+    public Task<List<Robot>> GetAllRobots()
         => _robotRepository.GetAllRobots();
 
-    public Robot? GetRobotById(int id)
+    public Task<Robot?> GetRobotById(int id)
         => _robotRepository.GetRobotById(id);
 
-    public List<Robot> GetActiveRobots()
+    public Task<List<Robot>> GetActiveRobots()
         => _robotRepository.GetActiveRobots();
 }

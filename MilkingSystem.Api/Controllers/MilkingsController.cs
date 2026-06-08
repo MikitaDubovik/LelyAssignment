@@ -29,15 +29,15 @@ public class MilkingsController(IMilkingService milkingService) : ControllerBase
     private readonly IMilkingService _milkingService = milkingService;
 
     [HttpGet("animal/{animalId}")]
-    public IActionResult GetForAnimal(int animalId)
+    public async Task<IActionResult> GetForAnimal(int animalId)
     {
-        return Ok(_milkingService.GetMilkingEventsForAnimal(animalId));
+        return Ok(await _milkingService.GetMilkingEventsForAnimal(animalId));
     }
 
     [HttpGet("animal/{animalId}/last")]
-    public IActionResult GetLastForAnimal(int animalId)
+    public async Task<IActionResult> GetLastForAnimal(int animalId)
     {
-        var lastEvent = _milkingService.GetLastMilkingForAnimal(animalId);
+        var lastEvent = await _milkingService.GetLastMilkingForAnimal(animalId);
         if (lastEvent is null)
         {
             return NotFound();
@@ -46,9 +46,9 @@ public class MilkingsController(IMilkingService milkingService) : ControllerBase
     }
 
     [HttpGet("recent")]
-    public IActionResult GetRecent([FromQuery] int hours = 24)
+    public async Task<IActionResult> GetRecent([FromQuery] int hours = 24)
     {
-        return Ok(_milkingService.GetRecentMilkingEvents(hours));
+        return Ok(await _milkingService.GetRecentMilkingEvents(hours));
     }
 
     [HttpPost]

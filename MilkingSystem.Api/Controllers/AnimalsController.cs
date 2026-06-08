@@ -11,15 +11,15 @@ public class AnimalsController(IAnimalService animalService) : ControllerBase
     private readonly IAnimalService _animalService = animalService;
 
     [HttpGet]
-    public IActionResult Get()
+    public async Task<IActionResult> Get()
     {
-        return Ok(_animalService.GetAllAnimals());
+        return Ok(await _animalService.GetAllAnimals());
     }
 
     [HttpGet("{id}")]
-    public IActionResult Get(int id)
+    public async Task<IActionResult> Get(int id)
     {
-        var animal = _animalService.GetAnimalById(id);
+        var animal = await _animalService.GetAnimalById(id);
         if (animal is null)
         {
             return NotFound();
@@ -28,9 +28,9 @@ public class AnimalsController(IAnimalService animalService) : ControllerBase
     }
 
     [HttpGet("by-identification/{identificationNumber}")]
-    public IActionResult GetByIdentificationNumber(string identificationNumber)
+    public async Task<IActionResult> GetByIdentificationNumber(string identificationNumber)
     {
-        var animal = _animalService.GetAnimalByIdentificationNumber(identificationNumber);
+        var animal = await _animalService.GetAnimalByIdentificationNumber(identificationNumber);
         if (animal is null)
         {
             return NotFound();
@@ -39,9 +39,9 @@ public class AnimalsController(IAnimalService animalService) : ControllerBase
     }
 
     [HttpPost]
-    public IActionResult Create([FromBody] CreateAnimalRequest request)
+    public async Task<IActionResult> Create([FromBody] CreateAnimalRequest request)
     {
-        var id = _animalService.CreateAnimal(request.IdentificationNumber, request.Name, request.BirthDate);
+        var id = await _animalService.CreateAnimal(request.IdentificationNumber, request.Name, request.BirthDate);
         return CreatedAtAction(nameof(Get), new { id }, new { id });
     }
 }

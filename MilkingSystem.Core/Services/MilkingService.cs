@@ -30,13 +30,13 @@ public class MilkingService(
     private SemaphoreSlim GetAnimalLock(int animalId)
         => _animalLocks.GetOrAdd(animalId, _ => new SemaphoreSlim(1, 1));
 
-    public List<MilkingEvent> GetMilkingEventsForAnimal(int animalId)
+    public Task<List<MilkingEvent>> GetMilkingEventsForAnimal(int animalId)
         => _milkingEventRepository.GetMilkingEventsForAnimal(animalId);
 
-    public MilkingEvent? GetLastMilkingForAnimal(int animalId)
+    public Task<MilkingEvent?> GetLastMilkingForAnimal(int animalId)
         => _milkingEventRepository.GetLastMilkingForAnimal(animalId);
 
-    public List<MilkingEvent> GetRecentMilkingEvents(int hours = 24)
+    public Task<List<MilkingEvent>> GetRecentMilkingEvents(int hours = 24)
         => _milkingEventRepository.GetRecentMilkingEvents(hours);
 
     public async Task<MilkingServiceResult> RecordMilking(
@@ -47,13 +47,13 @@ public class MilkingService(
             return new MilkingServiceResult { Status = MilkingServiceStatus.MilkAmountIsIncorrect };
         }
 
-        var animal = _animalRepository.GetAnimalById(animalId);
+        var animal = await _animalRepository.GetAnimalById(animalId);
         if (animal is null)
         {
             return new MilkingServiceResult { Status = MilkingServiceStatus.AnimalNotFound };
         }
 
-        var robot = _robotRepository.GetRobotById(robotId);
+        var robot = await _robotRepository.GetRobotById(robotId);
         if (robot is null)
         {
             return new MilkingServiceResult { Status = MilkingServiceStatus.RobotNotFound };
@@ -65,7 +65,7 @@ public class MilkingService(
 
         var effectiveTimestamp = timestamp?.ToUniversalTime() ?? DateTime.UtcNow;
 
-        // Fast pre-check using in-memory state — avoids lock acquisition for the common case.
+        // Fast pre-check using in-memory state - avoids lock acquisition for the common case.
         if (_notifier.WasRecentlyMilked(animalId, _protectionWindowHours))
         {
             return new MilkingServiceResult { Status = MilkingServiceStatus.RecentlyMilked };
@@ -77,9 +77,9 @@ public class MilkingService(
         await animalLock.WaitAsync();
         try
         {
-            // Authoritative DB check inside the lock — catches the race where two concurrent
+            // Authoritative DB check inside the lock - catches the race where two concurrent
             // requests for the same animal both passed the in-memory pre-check.
-            var lastMilking = _milkingEventRepository.GetLastMilkingForAnimal(animalId);
+            var lastMilking = await _milkingEventRepository.GetLastMilkingForAnimal(animalId);
             if (lastMilking is not null
                 && (DateTime.UtcNow - lastMilking.Timestamp).TotalHours < _protectionWindowHours)
             {
@@ -91,7 +91,7 @@ public class MilkingService(
                 };
             }
 
-            var id = _milkingEventRepository.SaveMilkingEvent(
+            var id = await _milkingEventRepository.SaveMilkingEvent(
                 animalId, robotId, effectiveTimestamp, milkYieldLiters, duration);
 
             _notifier.NotifyMilkingCompleted(new MilkingNotification

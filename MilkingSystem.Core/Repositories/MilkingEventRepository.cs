@@ -7,16 +7,16 @@ public class MilkingEventRepository(string connectionString) : IMilkingEventRepo
 {
     private readonly string _connectionString = connectionString;
 
-    public List<MilkingEvent> GetMilkingEventsForAnimal(int animalId)
+    public async Task<List<MilkingEvent>> GetMilkingEventsForAnimal(int animalId)
     {
         var events = new List<MilkingEvent>();
         using (var conn = new SqlConnection(_connectionString))
         {
-            conn.Open();
+            await conn.OpenAsync();
             var cmd = new SqlCommand("SELECT * FROM MilkingEvents WHERE AnimalId = @AnimalId ORDER BY Timestamp DESC", conn);
             cmd.Parameters.AddWithValue("@AnimalId", animalId);
-            var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
                 events.Add(MapMilkingEvent(reader));
             }
@@ -24,24 +24,24 @@ public class MilkingEventRepository(string connectionString) : IMilkingEventRepo
         return events;
     }
 
-    public MilkingEvent? GetLastMilkingForAnimal(int animalId)
+    public async Task<MilkingEvent?> GetLastMilkingForAnimal(int animalId)
     {
         using var conn = new SqlConnection(_connectionString);
-        conn.Open();
+        await conn.OpenAsync();
         var cmd = new SqlCommand("SELECT TOP 1 * FROM MilkingEvents WHERE AnimalId = @AnimalId ORDER BY Timestamp DESC", conn);
         cmd.Parameters.AddWithValue("@AnimalId", animalId);
-        var reader = cmd.ExecuteReader();
-        if (reader.Read())
+        var reader = await cmd.ExecuteReaderAsync();
+        if (await reader.ReadAsync())
         {
             return MapMilkingEvent(reader);
         }
         return null;
     }
 
-    public int SaveMilkingEvent(int animalId, int robotId, DateTime timestamp, decimal milkYieldLiters, int? duration)
+    public async Task<int> SaveMilkingEvent(int animalId, int robotId, DateTime timestamp, decimal milkYieldLiters, int? duration)
     {
         using var conn = new SqlConnection(_connectionString);
-        conn.Open();
+        await conn.OpenAsync();
         var cmd = new SqlCommand(@"INSERT INTO MilkingEvents (AnimalId, RobotId, Timestamp, MilkYieldLiters, Duration)
                                        OUTPUT INSERTED.Id
                                        VALUES (@AnimalId, @RobotId, @Timestamp, @MilkYieldLiters, @Duration)", conn);
@@ -50,20 +50,20 @@ public class MilkingEventRepository(string connectionString) : IMilkingEventRepo
         cmd.Parameters.AddWithValue("@Timestamp", timestamp);
         cmd.Parameters.AddWithValue("@MilkYieldLiters", milkYieldLiters);
         cmd.Parameters.AddWithValue("@Duration", (object?)duration ?? DBNull.Value);
-        return (int)cmd.ExecuteScalar()!;
+        return (int)(await cmd.ExecuteScalarAsync())!;
     }
 
-    public List<MilkingEvent> GetRecentMilkingEvents(int hours = 24)
+    public async Task<List<MilkingEvent>> GetRecentMilkingEvents(int hours = 24)
     {
         var events = new List<MilkingEvent>();
         using (var conn = new SqlConnection(_connectionString))
         {
-            conn.Open();
+            await conn.OpenAsync();
             var cutoff = DateTime.UtcNow.AddHours(-hours);
             var cmd = new SqlCommand("SELECT * FROM MilkingEvents WHERE Timestamp > @Cutoff", conn);
             cmd.Parameters.AddWithValue("@Cutoff", cutoff);
-            var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
                 events.Add(MapMilkingEvent(reader));
             }
@@ -71,19 +71,19 @@ public class MilkingEventRepository(string connectionString) : IMilkingEventRepo
         return events;
     }
 
-    public Dictionary<int, decimal> GetTotalMilkYieldByAnimal(DateTime from, DateTime to)
+    public async Task<Dictionary<int, decimal>> GetTotalMilkYieldByAnimal(DateTime from, DateTime to)
     {
         var result = new Dictionary<int, decimal>();
         using (var conn = new SqlConnection(_connectionString))
         {
-            conn.Open();
+            await conn.OpenAsync();
             var cmd = new SqlCommand(
                 "SELECT AnimalId, SUM(MilkYieldLiters) as Total FROM MilkingEvents WHERE Timestamp BETWEEN @From AND @To GROUP BY AnimalId",
                 conn);
             cmd.Parameters.AddWithValue("@From", from);
             cmd.Parameters.AddWithValue("@To", to);
-            var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
                 result[(int)reader["AnimalId"]] = (decimal)reader["Total"];
             }
@@ -91,13 +91,13 @@ public class MilkingEventRepository(string connectionString) : IMilkingEventRepo
         return result;
     }
 
-    public double GetAverageMilkYield(int animalId)
+    public async Task<double> GetAverageMilkYield(int animalId)
     {
         using var conn = new SqlConnection(_connectionString);
-        conn.Open();
+        await conn.OpenAsync();
         var cmd = new SqlCommand("SELECT AVG(MilkYieldLiters) FROM MilkingEvents WHERE AnimalId = @AnimalId", conn);
         cmd.Parameters.AddWithValue("@AnimalId", animalId);
-        var result = cmd.ExecuteScalar();
+        var result = await cmd.ExecuteScalarAsync();
         if (result != DBNull.Value)
         {
             return Convert.ToDouble(result);

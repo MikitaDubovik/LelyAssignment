@@ -7,15 +7,15 @@ public class RobotRepository(string connectionString) : IRobotRepository
 {
     private readonly string _connectionString = connectionString;
 
-    public List<Robot> GetAllRobots()
+    public async Task<List<Robot>> GetAllRobots()
     {
         var robots = new List<Robot>();
         using (var conn = new SqlConnection(_connectionString))
         {
-            conn.Open();
+            await conn.OpenAsync();
             var cmd = new SqlCommand("SELECT * FROM Robots", conn);
-            var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
                 robots.Add(MapRobot(reader));
             }
@@ -23,29 +23,29 @@ public class RobotRepository(string connectionString) : IRobotRepository
         return robots;
     }
 
-    public Robot? GetRobotById(int id)
+    public async Task<Robot?> GetRobotById(int id)
     {
         using var conn = new SqlConnection(_connectionString);
-        conn.Open();
+        await conn.OpenAsync();
         var cmd = new SqlCommand("SELECT * FROM Robots WHERE Id = @Id", conn);
         cmd.Parameters.AddWithValue("@Id", id);
-        var reader = cmd.ExecuteReader();
-        if (reader.Read())
+        var reader = await cmd.ExecuteReaderAsync();
+        if (await reader.ReadAsync())
         {
             return MapRobot(reader);
         }
         return null;
     }
 
-    public List<Robot> GetActiveRobots()
+    public async Task<List<Robot>> GetActiveRobots()
     {
         var robots = new List<Robot>();
         using (var conn = new SqlConnection(_connectionString))
         {
-            conn.Open();
+            await conn.OpenAsync();
             var cmd = new SqlCommand("SELECT * FROM Robots WHERE IsActive = 1", conn);
-            var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
                 robots.Add(MapRobot(reader));
             }
